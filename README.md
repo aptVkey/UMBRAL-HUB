@@ -6,7 +6,7 @@ Private information hub for the Umbral group, written in Portuguese (Portugal).
 
 Alojamentos: create, consult, update and delete property records with general information, room types and inventory, rate plans, operators and commission terms, 43 predefined amenities and custom amenities, and operational policies. Corporates: create and edit company identity, contacts and billing data, agreement dates and terms, discount and promotional code, and select linked registered properties individually or all at once. Upload, replace, download or remove one PDF, Word or image contract up to 10 MB. Formação: organiza departamentos, hierarquias de cargos, rotinas diárias e SOPs por função. Os modelos iniciais são rascunhos editáveis; cada SOP pode ser validado, revisto ou arquivado. As restantes duas áreas são marcadas como pendentes de configuração.
 
-Data is stored in platform D1. The properties table stores validated aggregate records and an optimistic concurrency version. The client keeps unsubmitted edits in memory, warns before leaving, and preserves input on save failures. Corporate agreements use versioned D1 records and a relational junction table with foreign keys; referenced properties cannot be deleted until unlinked. Formação uses a versioned D1 workspace containing departments, role hierarchy, routines and SOP steps. Contract files use private R2 object storage, with download through the app and replacement cleanup after successful database writes. No business data is stored in localStorage.
+Data is stored in Supabase (Postgres). The app server talks to it with the secret key through the `exec_sql` function (see `db/raw.ts`); contracts and operator attachments use the private Supabase Storage bucket `umbral-files`. The properties table stores validated aggregate records and an optimistic concurrency version. The client keeps unsubmitted edits in memory, warns before leaving, and preserves input on save failures. Corporate agreements use versioned D1 records and a relational junction table with foreign keys; referenced properties cannot be deleted until unlinked. Formação uses a versioned D1 workspace containing departments, role hierarchy, routines and SOP steps. Contract files use private Supabase Storage, with download through the app and replacement cleanup after successful database writes. No business data is stored in localStorage.
 
 ## Access
 
@@ -14,7 +14,7 @@ This first deployment uses Sites owner-private access. Access is enforced by the
 
 ## Development
 
-Preserve pnpm-lock.yaml. Use Sites build and preview helpers. The platform applies generated Drizzle migrations in production; local preview migrations are applied separately to .wrangler/state.
+Preserve pnpm-lock.yaml. Use Sites build and preview helpers. The database schema lives in `supabase/migrations` (apply it in the Supabase SQL editor or with the Supabase MCP). Set SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY and SUPABASE_JWKS_URL in `.env` locally and in the hosting environment. `scripts/migrate-d1-to-supabase.py` copies the old local D1 data.
 
 ## Verification
 

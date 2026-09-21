@@ -289,3 +289,13 @@ h2,h3{color:var(--brand-navy)}
 .keysafe-row .ks-copy{width:34px;height:34px;color:var(--brand-gray)}.keysafe-row .ks-copy:hover:not(:disabled){color:var(--brand-navy);background:var(--brand-navy-soft)}
 .is-readonly .editor-fieldset .ks-tools,.is-readonly .editor-fieldset .ks-copy{pointer-events:auto}
 @media(max-width:767px){.keysafe-list{grid-template-columns:1fr;padding:14px}.keysafe-toolbar .muted{margin-left:0}}
+
+/* Login e conta */
+.login-page{min-height:100vh;background:var(--brand-paper);display:flex;flex-direction:column}.login-main{flex:1;display:grid;place-items:center;padding:36px 20px 60px}
+.login-card{width:100%;max-width:440px;padding:36px 34px 30px;display:flex;flex-direction:column;gap:14px;border-top:4px solid var(--brand-coral)}.login-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:var(--brand-navy-soft);color:var(--brand-navy);border:1px solid #dddff0}
+.login-card h1{font-size:25px;color:var(--brand-navy);line-height:1.25}.login-card>p{font-size:14px;color:var(--brand-gray);line-height:1.65}.login-fields{display:flex;flex-direction:column;gap:16px;margin-top:6px}.login-submit{width:100%;justify-content:center;margin-top:6px}.login-note{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#666;line-height:1.6;margin-top:4px}.login-note svg{flex-shrink:0;color:var(--brand-navy);margin-top:2px}
+.password-row{display:flex;gap:8px}.password-row input{flex:1;min-width:0}.password-row [data-slot=button]{min-height:42px;flex-shrink:0}
+.settings-form .field.wide{grid-column:1/-1}
+.account-panel{margin-top:6px;padding:16px 18px;border:1px solid var(--border);border-radius:10px;background:#fbfbfd}.account-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.account-head h4{font-size:15px;font-weight:600;color:var(--brand-navy)}.account-head span{font-size:12px;color:var(--brand-gray);overflow-wrap:anywhere}.account-actions{display:flex;gap:8px;flex-wrap:wrap}
+.account-form{display:flex;flex-direction:column;gap:14px;margin-top:16px;padding-top:16px;border-top:1px solid #e7ecf0;max-width:360px}
+@media(max-width:767px){.login-card{padding:28px 20px 24px}}

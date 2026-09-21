@@ -6,7 +6,7 @@ export const dynamic="force-dynamic";
 export async function GET(request:Request){
  const g=await guard(request,"partnerships","view");if("response" in g)return g.response;
  const kind=new URL(request.url).searchParams.get("kind");if(kind!=="partner"&&kind!=="affiliate")return reply({error:"Pedido inválido."},400);
- try{const {results}=await database().prepare(`${SELECT_WITH_TOTALS} WHERE c.kind=? GROUP BY c.id ORDER BY c.name COLLATE NOCASE`).bind(kind).all<Row>();return reply({collaborators:results.map(present)});}
+ try{const {results}=await database().prepare(`${SELECT_WITH_TOTALS} WHERE c.kind=? GROUP BY c.id ORDER BY lower(c.name)`).bind(kind).all<Row>();return reply({collaborators:results.map(present)});}
  catch(e){console.error("Load collaborators",e);return reply({error:"Não foi possível carregar os registos. Tenta novamente."},503);}
 }
 export async function POST(request:Request){
@@ -19,7 +19,7 @@ export async function POST(request:Request){
  const c=result.data,now=new Date().toISOString(),version=c.version+1,db=database();
  const promo=c.kind==="affiliate"&&c.promoCode?normalizePromo(c.promoCode):null;
  if(promo){
-  const clash=await db.prepare("SELECT 1 FROM collaborators WHERE promo_code=? AND id<>? LIMIT 1").bind(promo,c.id).first()||await db.prepare("SELECT 1 FROM corporates WHERE upper(trim(json_extract(payload,'$.promoCode')))=? LIMIT 1").bind(promo).first();
+  const clash=await db.prepare("SELECT 1 FROM collaborators WHERE promo_code=? AND id<>? LIMIT 1").bind(promo,c.id).first()||await db.prepare("SELECT 1 FROM corporates WHERE upper(trim(payload::jsonb->>'promoCode'))=? LIMIT 1").bind(promo).first();
   if(clash)return reply({error:"Este código promocional já está em uso.",issues:[{path:["promoCode"],message:"Escolhe um código que ainda não exista em afiliados ou acordos corporate."}]},409);
  }
  const payload=JSON.stringify({...c,promoCode:promo??"",version});

@@ -7,7 +7,7 @@ export const dynamic="force-dynamic";
 type Row={id:string,payload:string,version:number,updated_at:string};
 export async function GET(request:Request){
  const g=await guard(request,["operators","properties","campaigns"],"view");if("response" in g)return g.response;const access=g.access;
- try{const db=database();const [o,l]=await db.batch([db.prepare("SELECT id,payload,version,updated_at FROM operators ORDER BY name COLLATE NOCASE"),db.prepare("SELECT operator_id,property_id FROM operator_properties")]);
+ try{const db=database();const [o,l]=await db.batch([db.prepare("SELECT id,payload,version,updated_at FROM operators ORDER BY lower(name)"),db.prepare("SELECT operator_id,property_id FROM operator_properties")]);
  const links=new Map<string,string[]>();for(const r of l.results as {operator_id:string,property_id:string}[])links.set(r.operator_id,[...(links.get(r.operator_id)||[]),r.property_id]);
  const full=atLeast(access.areas.operators,"view");
  const visible=(o.results as Row[]).filter(r=>scopeVisible(access,links.get(r.id)||[]));
@@ -30,7 +30,7 @@ export async function POST(request:Request){
  if(old&&!scopeVisible(access,existing))return deny("O teu acesso está limitado a alguns alojamentos.");
  // Quem tem acesso limitado só altera as ligações dos seus alojamentos; as restantes mantêm-se.
  const propertyIds=access.propertyIds===null?o.propertyIds:[...o.propertyIds.filter(id=>propertyAllowed(access,id)),...existing.filter(id=>!propertyAllowed(access,id))];
- if(propertyIds.length&&(await db.prepare("SELECT COUNT(*) AS n FROM properties WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(propertyIds)).first<{n:number}>())?.n!==propertyIds.length)return reply({error:"A lista de alojamentos mudou. Atualiza a lista no separador Alojamentos e revê a seleção."},409);
+ if(propertyIds.length&&(await db.prepare("SELECT COUNT(*) AS n FROM properties WHERE id IN (SELECT jsonb_array_elements_text(?::jsonb))").bind(JSON.stringify(propertyIds)).first<{n:number}>())?.n!==propertyIds.length)return reply({error:"A lista de alojamentos mudou. Atualiza a lista no separador Alojamentos e revê a seleção."},409);
  for(const removed of existing.filter(id=>!propertyIds.includes(id))){const c=await unlinkConflict(o.id,removed);if(c)return reply({error:conflictMessage(c)},409);}
  const now=new Date().toISOString(),version=o.version+1,token=crypto.randomUUID();
  const {propertyIds:_ignored,...core}=o,payload=JSON.stringify({...core,version});
