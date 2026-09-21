@@ -273,3 +273,19 @@ h2,h3{color:var(--brand-navy)}
 
 /* Cartão lateral da lista de alojamentos: fica fixo enquanto se percorre a página */
 .overview-note{align-self:start;position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto}
+
+/* Números de quarto */
+.units-panel{display:flex;flex-direction:column;gap:18px}
+.unit-add{display:grid;grid-template-columns:minmax(120px,1fr) minmax(180px,2fr) auto;gap:14px;align-items:end;padding:18px;border:1px solid #d4e9e9;border-radius:10px;background:var(--brand-turquoise-soft)}.unit-add [data-slot=button]{min-height:42px}
+.unit-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.unit-search{position:relative;flex:1;min-width:220px;max-width:380px}.unit-search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--brand-gray);pointer-events:none}.unit-search input{padding-left:36px;background:#fff;border:1px solid #dce3e9;border-radius:6px;min-height:42px;font-size:14px;color:var(--brand-navy);width:100%}
+.unit-group{border:1px solid var(--border);border-radius:10px;background:#fff;overflow:hidden}.unit-group header{display:flex;align-items:center;gap:10px;padding:13px 18px;background:#fbfbfd;border-bottom:1px solid var(--border);flex-wrap:wrap}.unit-group h3{font-size:15px;font-weight:600;color:var(--brand-navy);overflow-wrap:anywhere}.unit-code{font-size:11px;letter-spacing:.4px;padding:3px 9px;border-radius:50px;background:var(--brand-navy-soft);color:var(--brand-navy)}.unit-count{margin-left:auto;font-size:12px;border-radius:50px;padding:3px 10px;background:var(--brand-turquoise-soft);color:#00666b}
+.unit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:9px;padding:16px 18px}.unit-chip{display:flex;align-items:center;border:1px solid #dce3e9;border-radius:8px;background:#fff;overflow:hidden}.unit-chip:focus-within{border-color:var(--brand-navy);box-shadow:0 0 0 2px #2a317512}.unit-chip input{border:0;box-shadow:none;background:transparent;min-height:38px;padding:8px 10px;font-size:14px;font-weight:500;color:var(--brand-navy);min-width:0;width:100%}.unit-chip input:focus{outline:0}.unit-chip button{display:grid;place-items:center;flex-shrink:0;width:32px;height:38px;color:var(--brand-gray)}.unit-chip button:hover{color:#a8323d;background:#fff0f1}
+@media(max-width:767px){.unit-add{grid-template-columns:1fr}.unit-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));padding:14px}}
+
+/* Keysafes */
+.keysafe-panel{display:flex;flex-direction:column;gap:16px}.keysafe-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.keysafe-toolbar .muted{margin-left:auto;font-size:13px}
+.keysafe-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px 16px;padding:16px 18px}.keysafe-row{display:grid;grid-template-columns:78px minmax(0,1fr) auto;align-items:center;gap:10px}.keysafe-row label{font-size:13px;font-weight:600;color:var(--brand-navy);overflow-wrap:anywhere}
+.keysafe-row input{background:#fff;border:1px solid #dce3e9;border-radius:6px;min-height:38px;font-size:14px;letter-spacing:.5px;color:var(--brand-navy);padding:8px 10px;width:100%;font-variant-numeric:tabular-nums}.keysafe-row input:focus{border-color:var(--brand-navy);outline:0;box-shadow:0 0 0 2px #2a317512}.keysafe-row input.ks-hidden{-webkit-text-security:disc;text-security:disc}
+.keysafe-row .ks-copy{width:34px;height:34px;color:var(--brand-gray)}.keysafe-row .ks-copy:hover:not(:disabled){color:var(--brand-navy);background:var(--brand-navy-soft)}
+.is-readonly .editor-fieldset .ks-tools,.is-readonly .editor-fieldset .ks-copy{pointer-events:auto}
+@media(max-width:767px){.keysafe-list{grid-template-columns:1fr;padding:14px}.keysafe-toolbar .muted{margin-left:0}}

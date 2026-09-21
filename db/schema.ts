@@ -79,3 +79,8 @@ export const operatorAttachments = sqliteTable("operator_attachments", {
  id: text("id").primaryKey(), messageId: text("message_id").notNull().references(()=>operatorMessages.id,{onDelete:"cascade"}),
  key: text("key").notNull(), name: text("name").notNull(), size: integer("size").notNull(), type: text("type").notNull()
 }, t=>[index("idx_operator_attachments_message").on(t.messageId)]);
+
+export const unitKeysafes = sqliteTable("unit_keysafes", {
+ unitId: text("unit_id").primaryKey(), propertyId: text("property_id").notNull().references(()=>properties.id,{onDelete:"cascade"}),
+ code: text("code").notNull(), updatedAt: text("updated_at").notNull()
+}, t=>[index("idx_unit_keysafes_property_id").on(t.propertyId)]);
