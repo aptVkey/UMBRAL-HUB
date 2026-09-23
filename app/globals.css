@@ -299,6 +299,3 @@ h2,h3{color:var(--brand-navy)}
 .account-panel{margin-top:6px;padding:16px 18px;border:1px solid var(--border);border-radius:10px;background:#fbfbfd}.account-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.account-head h4{font-size:15px;font-weight:600;color:var(--brand-navy)}.account-head span{font-size:12px;color:var(--brand-gray);overflow-wrap:anywhere}.account-actions{display:flex;gap:8px;flex-wrap:wrap}
 .account-form{display:flex;flex-direction:column;gap:14px;margin-top:16px;padding-top:16px;border-top:1px solid #e7ecf0;max-width:360px}
 @media(max-width:767px){.login-card{padding:28px 20px 24px}}
-
-/* Campo Fotos (Google Drive) com botão de abrir */
-.field-with-action{display:flex;gap:10px}.field-with-action input{flex:1;min-width:0}.field-with-action [data-slot=button]{flex-shrink:0}
