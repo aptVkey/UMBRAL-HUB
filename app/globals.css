@@ -309,3 +309,7 @@ h2,h3{color:var(--brand-navy)}
 /* Os cartões de departamento também têm a classe .panel; anula a margem de empilhamento
    dentro da grelha para os topos ficarem alinhados por linha. */
 .department-grid>.panel+.panel{margin-top:0}
+
+/* Pesquisa de alojamentos (lista principal e seletores) */
+.property-search{padding:16px 24px;border-bottom:1px solid var(--border)}
+.property-search-empty{padding:24px;text-align:center;border-top:0}

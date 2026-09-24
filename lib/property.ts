@@ -39,3 +39,8 @@ export const policyGroups = [
  {title:"Durante a estadia",fields:[{key:"cleaning",label:"Limpeza — frequência e exceções",area:true},{key:"towels",label:"Troca de toalhas e roupa de cama",area:true},{key:"breakfast",label:"Pequeno-almoço — horários, local e preço",area:true},{key:"children",label:"Crianças, berços e camas extra",area:true},{key:"pets",label:"Animais de estimação — regras e custos",area:true},{key:"smoking",label:"Fumadores, festas e horário de silêncio",area:true}]},
  {title:"Informação útil",fields:[{key:"parking",label:"Estacionamento e acessos",area:true},{key:"accessibility",label:"Acessibilidade e limitações",area:true},{key:"emergency",label:"Contacto de emergência e assistência",area:true},{key:"directions",label:"Como chegar e pontos de referência",area:true},{key:"other",label:"Outras regras e informações",area:true}]}
 ] as const;
+/** Usado para filtrar listas e seletores de alojamentos por nome, localidade ou região. */
+export function propertyMatches(p:{name:string,city:string,region:string},query:string){
+ const q=query.trim().toLowerCase();if(!q)return true;
+ return p.name.toLowerCase().includes(q)||p.city.toLowerCase().includes(q)||p.region.toLowerCase().includes(q);
+}

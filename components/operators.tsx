@@ -1,7 +1,8 @@
 "use client";
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {Network,Plus,ArrowLeft,ChevronRight,Save,Check,PencilLine,LoaderCircle,Hotel,MapPin,RefreshCw,Trash2,Percent,CalendarDays,User,FileText,MessageSquare,ShieldAlert} from 'lucide-react';
+import {Network,Plus,ArrowLeft,ChevronRight,Save,Check,PencilLine,LoaderCircle,Hotel,MapPin,RefreshCw,Trash2,Percent,CalendarDays,User,FileText,MessageSquare,ShieldAlert,Search} from 'lucide-react';
 import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
 import {Checkbox} from '@/components/ui/checkbox';
 import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
 import {Empty,EmptyHeader,EmptyTitle,EmptyDescription,EmptyMedia} from '@/components/ui/empty';
@@ -11,7 +12,7 @@ import {Field,Heading} from '@/components/hub-fields';
 import OperatorChat from '@/components/operator-chat';
 import {toast} from 'sonner';
 import {operatorSchema,newOperator,withDefaults,commissionLabel,OPERATOR_TYPES,type Operator,type SavedOperator} from '@/lib/operator';
-import type {SavedProperty} from '@/lib/property';
+import {propertyMatches,type SavedProperty} from '@/lib/property';
 
 const tabs=[{id:'data',label:'Dados',icon:Network},{id:'contacts',label:'Contactos',icon:User},{id:'terms',label:'Condições',icon:Percent},{id:'properties',label:'Alojamentos',icon:Hotel},{id:'chat',label:'Notas e conversa',icon:MessageSquare}];
 const fieldNames:Record<string,string>={name:'Nome',contactEmail:'Email de contacto',reservationsEmail:'Email de reservas',financeEmail:'Email financeiro',website:'Website',extranetUrl:'Link da extranet',commission:'Comissão',contractStart:'Início do contrato',contractEnd:'Fim do contrato',propertyIds:'Alojamentos'};
@@ -20,7 +21,7 @@ const toDraft=(o:SavedOperator):Operator=>{const {updatedAt,...d}=o;return withD
 export default function Operators({onStateChange}:{onStateChange:(state:{dirty:boolean,busy:boolean})=>void}){
  const [items,setItems]=useState<SavedOperator[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState('');
  const [draft,setDraft]=useState<Operator|null>(null),[baseline,setBaseline]=useState(''),[saved,setSaved]=useState<SavedOperator|null>(null),[tab,setTab]=useState('data');
- const [properties,setProperties]=useState<SavedProperty[]>([]),[propLoading,setPropLoading]=useState(false),[propError,setPropError]=useState('');
+ const [properties,setProperties]=useState<SavedProperty[]>([]),[propLoading,setPropLoading]=useState(false),[propError,setPropError]=useState(''),[propFilter,setPropFilter]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[issues,setIssues]=useState<{path:(string|number)[],message:string}[]>([]);
  const [confirmLeave,setConfirmLeave]=useState(false),[confirmDelete,setConfirmDelete]=useState(false);
  const errorRef=useRef<HTMLDivElement>(null);
@@ -32,7 +33,7 @@ export default function Operators({onStateChange}:{onStateChange:(state:{dirty:b
  useEffect(()=>()=>onStateChange({dirty:false,busy:false}),[onStateChange]);
  useEffect(()=>{if(!dirty)return;const f=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',f);return()=>window.removeEventListener('beforeunload',f)},[dirty]);
  useEffect(()=>{if(error)errorRef.current?.scrollIntoView({block:'nearest',behavior:'smooth'})},[error]);
- function open(o?:SavedOperator){const d=o?toDraft(o):newOperator();setDraft(d);setBaseline(JSON.stringify(d));setSaved(o||null);setTab('data');setError('');setIssues([]);loadProperties()}
+ function open(o?:SavedOperator){const d=o?toDraft(o):newOperator();setDraft(d);setBaseline(JSON.stringify(d));setSaved(o||null);setTab('data');setError('');setIssues([]);setPropFilter('');loadProperties()}
  function patch(p:Partial<Operator>){setDraft(d=>d?{...d,...p}:d);if(issues.length){setIssues([]);setError('')}}
  function close(){if(busy)return;if(dirty)setConfirmLeave(true);else setDraft(null)}
  async function save(){if(!draft||busy)return;setError('');setIssues([]);const parsed=operatorSchema.safeParse(draft);
@@ -43,6 +44,7 @@ export default function Operators({onStateChange}:{onStateChange:(state:{dirty:b
  async function remove(){if(!saved||busy)return;setConfirmDelete(false);setBusy(true);try{const r=await fetch(`/api/operators?id=${saved.id}&version=${saved.version}`,{method:'DELETE'});const data:{error?:string}=await r.json();if(!r.ok)throw Error(data.error);setItems(l=>l.filter(x=>x.id!==saved.id));setDraft(null);setSaved(null);toast.success('Operador eliminado.')}catch(e){setError(e instanceof Error?e.message:'Não foi possível eliminar.')}finally{setBusy(false)}}
  const selected=draft?.propertyIds||[],selectedCount=selected.length,allSelected=!!properties.length&&properties.every(p=>selected.includes(p.id));
  const missing=properties.length?selected.filter(id=>!properties.some(p=>p.id===id)):[];
+ const shownProperties=properties.filter(p=>propertyMatches(p,propFilter));
  const linkedForChat=useMemo(()=>properties.filter(p=>(saved?.propertyIds||[]).includes(p.id)).map(p=>({id:p.id,name:p.name})),[properties,saved]);
  const stats={total:items.length,active:items.filter(o=>o.status==='Ativo').length,links:items.reduce((n,o)=>n+o.propertyIds.length,0)};
  return <div className="operators-area">
@@ -72,7 +74,7 @@ export default function Operators({onStateChange}:{onStateChange:(state:{dirty:b
   <Field label="Regras de reserva" area value={draft.bookingRules} onChange={v=>patch({bookingRules:v})} placeholder="Allotment, disponibilidade, paridade e outras regras."/><Field label="Notas internas" area value={draft.notes} onChange={v=>patch({notes:v})} placeholder="Informação geral. Para notas partilhadas com a equipa, usa Notas e conversa."/></div></section></TabsContent>
  <TabsContent value="properties"><section className="panel form-panel"><Heading title="Alojamentos com que trabalha" desc="Seleciona os alojamentos onde este operador vende. A ligação aparece também na ficha de cada alojamento."><Button variant="outline" disabled={propLoading||busy} onClick={loadProperties}><RefreshCw className={propLoading?'spin':''}/> Atualizar lista</Button></Heading>
   {propLoading?<div className="loading-list"><Skeleton className="h-20"/><Skeleton className="h-20"/></div>:propError?<div className="error-banner" role="alert">{propError}<Button variant="outline" onClick={loadProperties}>Tentar novamente</Button></div>:<>{!!missing.length&&<div className="error-banner" role="alert">{missing.length} alojamento(s) selecionado(s) já não existem. <Button variant="outline" onClick={()=>patch({propertyIds:selected.filter(id=>!missing.includes(id))})}>Remover referências indisponíveis</Button></div>}
-  {properties.length?<><div className="corporate-selection-bar"><label className="check-line"><Checkbox checked={allSelected?true:selected.some(id=>properties.some(p=>p.id===id))?'indeterminate':false} onCheckedChange={v=>patch({propertyIds:v?properties.map(p=>p.id):[]})}/>Selecionar todos</label><span>{selectedCount} de {properties.length} selecionados</span>{selectedCount>0&&<Button variant="ghost" onClick={()=>patch({propertyIds:[]})}>Limpar seleção</Button>}</div><div className="corporate-property-grid">{properties.map(p=><label className={'corporate-property-option '+(selected.includes(p.id)?'selected':'')} key={p.id}><Checkbox checked={selected.includes(p.id)} onCheckedChange={v=>patch({propertyIds:v?[...selected,p.id]:selected.filter(id=>id!==p.id)})}/><span><strong>{p.name}</strong><small><MapPin size={12}/>{p.city||'Localidade por preencher'}{p.region&&` · ${p.region}`}</small></span><span className={'status '+p.status.toLowerCase()}>{p.status}</span></label>)}</div><p className="form-footnote">A ligação é a mesma nos dois sentidos: ao guardar, este operador fica associado aos alojamentos escolhidos e passa a aparecer na ficha de cada um.</p></>:<Empty className="small-empty"><EmptyHeader><EmptyMedia variant="icon"><Hotel/></EmptyMedia><EmptyTitle>Ainda não existem alojamentos</EmptyTitle><EmptyDescription>Regista os alojamentos na respetiva área e volta aqui para os ligar a este operador.</EmptyDescription></EmptyHeader></Empty>}</>}</section></TabsContent>
+  {properties.length?<><div className="unit-search"><Search size={15}/><Input aria-label="Pesquisar alojamentos" value={propFilter} placeholder="Pesquisar por nome, localidade ou região" onChange={e=>setPropFilter(e.target.value)}/></div><div className="corporate-selection-bar"><label className="check-line"><Checkbox checked={allSelected?true:selected.some(id=>properties.some(p=>p.id===id))?'indeterminate':false} onCheckedChange={v=>patch({propertyIds:v?properties.map(p=>p.id):[]})}/>Selecionar todos</label><span>{selectedCount} de {properties.length} selecionados</span>{selectedCount>0&&<Button variant="ghost" onClick={()=>patch({propertyIds:[]})}>Limpar seleção</Button>}</div>{shownProperties.length?<div className="corporate-property-grid">{shownProperties.map(p=><label className={'corporate-property-option '+(selected.includes(p.id)?'selected':'')} key={p.id}><Checkbox checked={selected.includes(p.id)} onCheckedChange={v=>patch({propertyIds:v?[...selected,p.id]:selected.filter(id=>id!==p.id)})}/><span><strong>{p.name}</strong><small><MapPin size={12}/>{p.city||'Localidade por preencher'}{p.region&&` · ${p.region}`}</small></span><span className={'status '+p.status.toLowerCase()}>{p.status}</span></label>)}</div>:<p className="form-footnote">Nenhum alojamento corresponde à pesquisa.</p>}<p className="form-footnote">A ligação é a mesma nos dois sentidos: ao guardar, este operador fica associado aos alojamentos escolhidos e passa a aparecer na ficha de cada um.</p></>:<Empty className="small-empty"><EmptyHeader><EmptyMedia variant="icon"><Hotel/></EmptyMedia><EmptyTitle>Ainda não existem alojamentos</EmptyTitle><EmptyDescription>Regista os alojamentos na respetiva área e volta aqui para os ligar a este operador.</EmptyDescription></EmptyHeader></Empty>}</>}</section></TabsContent>
  </fieldset>
  <TabsContent value="chat"><section className="panel form-panel">{saved?<OperatorChat operatorId={saved.id} properties={linkedForChat}/>:<Empty className="small-empty"><EmptyHeader><EmptyMedia variant="icon"><MessageSquare/></EmptyMedia><EmptyTitle>Guarda primeiro o operador</EmptyTitle><EmptyDescription>Depois de guardares a ficha podes partilhar notas e ficheiros com a equipa.</EmptyDescription></EmptyHeader><Button onClick={save} disabled={busy}><Save/> Guardar operador</Button></Empty>}</section></TabsContent>
  </Tabs>

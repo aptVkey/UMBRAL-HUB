@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useState} from 'react';
-import {LogOut,KeyRound,Users,Plus,ChevronRight,ArrowLeft,Save,LoaderCircle,Trash2,ShieldCheck,ShieldAlert,MapPin,RefreshCw,UserRound,Check} from 'lucide-react';
+import {LogOut,KeyRound,Users,Plus,ChevronRight,ArrowLeft,Save,LoaderCircle,Trash2,ShieldCheck,ShieldAlert,MapPin,RefreshCw,UserRound,Check,Search} from 'lucide-react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import {Button} from '@/components/ui/button';
@@ -11,7 +11,7 @@ import {Field} from '@/components/hub-fields';
 import {Input} from '@/components/ui/input';
 import {toast} from 'sonner';
 import {AREAS,LEVELS,LEVEL_LABEL,ROLES,ROLE_INFO,memberSchema,newMember,presetAreas,allAreas,type AreaKey,type Level,type Me,type Member,type Role,type SavedMember} from '@/lib/access';
-import type {SavedProperty} from '@/lib/property';
+import {propertyMatches,type SavedProperty} from '@/lib/property';
 
 type Issue={path:(string|number)[],message:string};
 const fieldNames:Record<string,string>={name:'Nome',email:'Email',areas:'Áreas',propertyIds:'Alojamentos',role:'Função',password:'Palavra-passe'};
@@ -30,14 +30,14 @@ function AccountPanel({email}:{email:string}){
 export default function SettingsDialog({open,onOpenChange,me}:{open:boolean,onOpenChange:(v:boolean)=>void,me:Me}){
  const [members,setMembers]=useState<SavedMember[]>([]),[implicit,setImplicit]=useState(false),[loading,setLoading]=useState(false),[loadError,setLoadError]=useState('');
  const [draft,setDraft]=useState<Member|null>(null),[baseline,setBaseline]=useState(''),[saved,setSaved]=useState<SavedMember|null>(null);
- const [properties,setProperties]=useState<SavedProperty[]>([]),[propLoading,setPropLoading]=useState(false),[propError,setPropError]=useState('');
+ const [properties,setProperties]=useState<SavedProperty[]>([]),[propLoading,setPropLoading]=useState(false),[propError,setPropError]=useState(''),[propFilter,setPropFilter]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[issues,setIssues]=useState<Issue[]>([]),[confirmDelete,setConfirmDelete]=useState(false),[confirmLeave,setConfirmLeave]=useState(false);
  const [password,setPassword]=useState(''),[showPw,setShowPw]=useState(false);
  const dirty=!!draft&&(JSON.stringify(draft)!==baseline||!!password);
  async function load(){setLoading(true);setLoadError('');try{const r=await fetch('/api/team',{cache:'no-store'});const data:{members?:SavedMember[],implicit?:boolean,error?:string}=await r.json();if(!r.ok||!data.members)throw Error(data.error);setMembers(data.members);setImplicit(!!data.implicit)}catch(e){setLoadError(e instanceof Error?e.message:'Não foi possível carregar a equipa.')}finally{setLoading(false)}}
  async function loadProperties(){setPropLoading(true);setPropError('');try{const r=await fetch('/api/properties',{cache:'no-store'});const data:{properties?:SavedProperty[],error?:string}=await r.json();if(!r.ok||!data.properties)throw Error(data.error);setProperties(data.properties)}catch(e){setPropError(e instanceof Error?e.message:'Não foi possível carregar os alojamentos.')}finally{setPropLoading(false)}}
  useEffect(()=>{if(open&&me.isAdmin)load();if(!open){setDraft(null);setSaved(null);setError('');setIssues([])}},[open,me.isAdmin]);
- function edit(m?:SavedMember){setPassword('');setShowPw(false);const d=m?toDraft(m):newMember();setDraft(d);setBaseline(JSON.stringify(d));setSaved(m||null);setError('');setIssues([]);loadProperties()}
+ function edit(m?:SavedMember){setPassword('');setShowPw(false);const d=m?toDraft(m):newMember();setDraft(d);setBaseline(JSON.stringify(d));setSaved(m||null);setError('');setIssues([]);setPropFilter('');loadProperties()}
  function patch(p:Partial<Member>){setDraft(d=>d?{...d,...p}:d);if(issues.length){setIssues([]);setError('')}}
  function setRole(role:Role){if(!draft)return;patch({role,areas:presetAreas(role,draft.areas),...(role==='Administrador'?{propertyScope:'all' as const,propertyIds:[]}:{})})}
  function setLevel(key:AreaKey,level:Level){if(!draft)return;const areas={...draft.areas,[key]:level};const same=(v:Level)=>Object.values(areas).every(l=>l===v);patch({areas,role:same('edit')?'Editor':same('view')?'Leitor':'Personalizado'})}
@@ -50,6 +50,7 @@ export default function SettingsDialog({open,onOpenChange,me}:{open:boolean,onOp
  async function remove(){if(!saved||busy)return;setConfirmDelete(false);setBusy(true);try{const r=await fetch(`/api/team?id=${saved.id}&version=${saved.version}`,{method:'DELETE'});const data:{error?:string}=await r.json();if(!r.ok)throw Error(data.error);toast.success('Conta removida.');await load();setDraft(null);setSaved(null)}catch(e){setError(e instanceof Error?e.message:'Não foi possível remover a conta.')}finally{setBusy(false)}}
  const isAdminRole=draft?.role==='Administrador';
  const missing=draft?draft.propertyIds.filter(id=>!properties.some(p=>p.id===id)):[];
+ const shownProperties=properties.filter(p=>propertyMatches(p,propFilter));
  return <><Dialog open={open} onOpenChange={v=>{if(!v&&busy)return;if(!v&&dirty){setConfirmLeave(true);return}onOpenChange(v)}}><DialogContent className="settings-dialog" aria-describedby="settings-desc">
   <DialogHeader><DialogTitle>Definições</DialogTitle><DialogDescription id="settings-desc">{me.isAdmin?'Gere as contas de acesso da equipa, as permissões e as áreas visíveis.':'Consulta o teu acesso ao hub.'}</DialogDescription></DialogHeader>
   {!me.isAdmin?<div className="settings-body"><div className="settings-me"><span className="member-avatar">{initials(me.name)}</span><div><strong>{me.name||me.email}</strong><span>{me.email}</span></div><span className="status ativo">{me.role||'Membro'}</span></div>
@@ -72,7 +73,7 @@ export default function SettingsDialog({open,onOpenChange,me}:{open:boolean,onOp
      {isAdminRole?<p className="settings-note"><Check size={15}/>Os administradores têm acesso a todos os alojamentos.</p>:<>
      <div className="field"><label htmlFor="member-scope">Alojamentos permitidos</label><Select value={draft.propertyScope} onValueChange={v=>patch({propertyScope:v as 'all'|'selected'})}><SelectTrigger id="member-scope"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">Todos os alojamentos</SelectItem><SelectItem value="selected">Apenas alojamentos selecionados</SelectItem></SelectContent></Select></div>
      {draft.propertyScope==='selected'&&(propLoading?<div className="loading-list"><Skeleton className="h-14"/></div>:propError?<div className="error-banner" role="alert">{propError}<Button variant="outline" onClick={loadProperties}>Tentar novamente</Button></div>:<>{!!missing.length&&<div className="error-banner" role="alert">{missing.length} alojamento(s) selecionado(s) já não existem. <Button variant="outline" onClick={()=>patch({propertyIds:draft.propertyIds.filter(id=>!missing.includes(id))})}>Remover referências indisponíveis</Button></div>}
-      {properties.length?<><div className="corporate-selection-bar"><label className="check-line"><Checkbox checked={properties.every(p=>draft.propertyIds.includes(p.id))?true:draft.propertyIds.length?'indeterminate':false} onCheckedChange={v=>patch({propertyIds:v?properties.map(p=>p.id):[]})}/>Selecionar todos</label><span>{draft.propertyIds.length} de {properties.length} selecionados</span></div><div className="corporate-property-grid">{properties.map(p=><label className={'corporate-property-option '+(draft.propertyIds.includes(p.id)?'selected':'')} key={p.id}><Checkbox checked={draft.propertyIds.includes(p.id)} onCheckedChange={v=>patch({propertyIds:v?[...draft.propertyIds,p.id]:draft.propertyIds.filter(id=>id!==p.id)})}/><span><strong>{p.name}</strong><small><MapPin size={12}/>{p.city||'Localidade por preencher'}</small></span></label>)}</div></>:<p className="settings-note"><MapPin size={15}/>Ainda não existem alojamentos registados.</p>}</>)}
+      {properties.length?<><div className="unit-search"><Search size={15}/><Input aria-label="Pesquisar alojamentos" value={propFilter} placeholder="Pesquisar por nome, localidade ou região" onChange={e=>setPropFilter(e.target.value)}/></div><div className="corporate-selection-bar"><label className="check-line"><Checkbox checked={properties.every(p=>draft.propertyIds.includes(p.id))?true:draft.propertyIds.length?'indeterminate':false} onCheckedChange={v=>patch({propertyIds:v?properties.map(p=>p.id):[]})}/>Selecionar todos</label><span>{draft.propertyIds.length} de {properties.length} selecionados</span></div>{shownProperties.length?<div className="corporate-property-grid">{shownProperties.map(p=><label className={'corporate-property-option '+(draft.propertyIds.includes(p.id)?'selected':'')} key={p.id}><Checkbox checked={draft.propertyIds.includes(p.id)} onCheckedChange={v=>patch({propertyIds:v?[...draft.propertyIds,p.id]:draft.propertyIds.filter(id=>id!==p.id)})}/><span><strong>{p.name}</strong><small><MapPin size={12}/>{p.city||'Localidade por preencher'}</small></span></label>)}</div>:<p className="form-footnote">Nenhum alojamento corresponde à pesquisa.</p>}</>:<p className="settings-note"><MapPin size={15}/>Ainda não existem alojamentos registados.</p>}</>)}
      {draft.propertyScope==='selected'&&<p className="settings-note"><ShieldAlert size={15}/>Com acesso limitado, a pessoa só vê campanhas e acordos ligados a estes alojamentos e não pode criar alojamentos novos.</p>}</>}</div>
    </fieldset>
    <div className="settings-actions">{saved&&saved.email!==me.email?<Button variant="ghost" className="danger-link" disabled={busy} onClick={()=>setConfirmDelete(true)}><Trash2/> Remover conta</Button>:<span/>}<div><Button variant="outline" disabled={busy} onClick={back}>Cancelar</Button><Button className="primary-btn" disabled={busy} onClick={save}>{busy?<LoaderCircle className="spin"/>:<Save/>} {saved?'Guardar conta':'Criar conta'}</Button></div></div></div>}
