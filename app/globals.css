@@ -305,3 +305,7 @@ h2,h3{color:var(--brand-navy)}
 
 /* Campos de link com botões de ação (copiar, abrir noutro separador) */
 .field-with-action{display:flex;gap:10px}.field-with-action input{flex:1;min-width:0}.field-with-action [data-slot=button]{flex-shrink:0}
+
+/* Os cartões de departamento também têm a classe .panel; anula a margem de empilhamento
+   dentro da grelha para os topos ficarem alinhados por linha. */
+.department-grid>.panel+.panel{margin-top:0}
