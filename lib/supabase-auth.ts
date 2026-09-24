@@ -1,12 +1,11 @@
-import {env} from "cloudflare:workers";
 import {database} from "@/db/raw";
 /** Contas e palavras-passe vivem no Supabase Auth; a app nunca guarda palavras-passe. */
 export const MIN_PASSWORD=8;
 export const passwordError=(p:unknown)=>typeof p!=="string"||p.length<MIN_PASSWORD?`A palavra-passe deve ter pelo menos ${MIN_PASSWORD} caracteres.`:p.length>128?"A palavra-passe é demasiado longa.":"";
-const admin=()=>{const url=env.SUPABASE_URL,key=env.SUPABASE_SECRET_KEY;if(!url||!key)throw new Error("Supabase não configurado.");return {url,headers:{apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"}}};
+const admin=()=>{const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SECRET_KEY;if(!url||!key)throw new Error("Supabase não configurado.");return {url,headers:{apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"}}};
 /** Verifica email + palavra-passe. Nunca revela se foi o email ou a palavra-passe que falhou. */
 export async function passwordLogin(email:string,password:string){
- const url=env.SUPABASE_URL,key=env.SUPABASE_PUBLISHABLE_KEY;if(!url||!key)throw new Error("Supabase não configurado.");
+ const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_PUBLISHABLE_KEY;if(!url||!key)throw new Error("Supabase não configurado.");
  const r=await fetch(`${url}/auth/v1/token?grant_type=password`,{method:"POST",headers:{apikey:key,"Content-Type":"application/json"},body:JSON.stringify({email,password})});
  return {ok:r.ok,status:r.status};
 }

@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 /**
  * Acesso à base de dados Supabase (Postgres) com a mesma interface que a app usava no D1:
  * prepare(sql).bind(...).first()/all()/run() e batch([...]) (uma transação).
@@ -10,7 +9,7 @@ type Spec = { sql: string; params: unknown[] };
 type Out = { rows: Row[]; changes: number };
 const BUCKET = "umbral-files";
 function config() {
-  const url = env.SUPABASE_URL, key = env.SUPABASE_SECRET_KEY;
+  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) throw new Error("Supabase não configurado: define SUPABASE_URL e SUPABASE_SECRET_KEY.");
   return { url, key, headers: { apikey: key, Authorization: `Bearer ${key}` } };
 }

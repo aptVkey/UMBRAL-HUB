@@ -1,4 +1,3 @@
-import {env} from "cloudflare:workers";
 /**
  * Sessão da app: cookie httpOnly assinado com HMAC-SHA256 que só guarda o email e a validade.
  * A chave de assinatura deriva da chave secreta do Supabase, por isso não há mais segredos a configurar.
@@ -10,7 +9,7 @@ const enc=new TextEncoder();
 const b64=(b:ArrayBuffer|Uint8Array)=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 const unb64=(s:string)=>Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));
 async function key(){
- const secret=env.SUPABASE_SECRET_KEY;if(!secret)throw new Error("SUPABASE_SECRET_KEY em falta.");
+ const secret=process.env.SUPABASE_SECRET_KEY;if(!secret)throw new Error("SUPABASE_SECRET_KEY em falta.");
  const base=await crypto.subtle.importKey("raw",enc.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
  const derived=await crypto.subtle.sign("HMAC",base,enc.encode("umbral-session-v1"));
  return crypto.subtle.importKey("raw",derived,{name:"HMAC",hash:"SHA-256"},false,["sign","verify"]);
