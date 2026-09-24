@@ -311,5 +311,13 @@ h2,h3{color:var(--brand-navy)}
 .department-grid>.panel+.panel{margin-top:0}
 
 /* Pesquisa de alojamentos (lista principal e seletores) */
-.property-search{padding:16px 24px;border-bottom:1px solid var(--border)}
 .property-search-empty{padding:24px;text-align:center;border-top:0}
+
+/* Pesquisa integrada nas barras "Selecionar todos" e nos cabeçalhos de lista */
+.selection-bar-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-left:auto}
+.bar-search{position:relative;flex:0 1 220px;min-width:160px}
+.bar-search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--brand-gray);pointer-events:none}
+.bar-search input{padding-left:32px;background:#fff;border:1px solid #dce3e9;border-radius:6px;min-height:34px;font-size:13px;color:var(--brand-navy);width:100%}
+.bar-search input:focus{border-color:var(--brand-navy);outline:0;box-shadow:0 0 0 2px #2a317512}
+.panel-heading .bar-search{flex:0 1 240px}
+@media(max-width:600px){.bar-search{flex-basis:100%}}
