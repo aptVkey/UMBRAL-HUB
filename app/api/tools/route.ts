@@ -6,7 +6,7 @@ const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cach
 const sameOrigin=(r:Request)=>!r.headers.get("origin")||r.headers.get("origin")===new URL(r.url).origin;
 export async function GET(request:Request){
  const g=await guard(request,"tools","view");if("response" in g)return g.response;
- try{const {results}=await database().prepare("SELECT payload,version,updated_at FROM tools ORDER BY lower(name)").all<{payload:string,version:number,updated_at:string}>();return reply({tools:results.map(r=>({...JSON.parse(r.payload),version:r.version,updatedAt:r.updated_at}))});}
+ try{const {results}=await database().prepare("SELECT id,payload,version,updated_at FROM tools ORDER BY lower(name)").all<{id:string,payload:string,version:number,updated_at:string}>();return reply({tools:results.map(r=>({...JSON.parse(r.payload),id:r.id,version:r.version,updatedAt:r.updated_at}))});}
  catch(e){console.error("Load tools",e);return reply({error:"Não foi possível carregar as ferramentas. Tenta novamente."},503);}
 }
 export async function POST(request:Request){
