@@ -201,6 +201,7 @@ h2,h3{color:var(--brand-navy)}
 .policy-deposit{margin-top:22px;padding-top:20px;border-top:1px solid #edf0f2}
 .policy-deposit h4{font-size:14px;font-weight:550;color:var(--brand-navy);margin-bottom:12px}
 .policy-deposit .form-grid{margin-top:16px}
+.field.force-wide{grid-column:1/-1!important}
 .summary-panel h4{font-size:12px;letter-spacing:1px;color:var(--brand-gray)}
 .summary-section.current{background:var(--brand-navy-soft);color:var(--brand-navy)}
 .summary-hint{font-size:12px!important}
