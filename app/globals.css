@@ -193,6 +193,14 @@ h2,h3{color:var(--brand-navy)}
 .amenity-rename-actions{display:flex;justify-content:flex-end;gap:8px}
 .amenity-rename-actions [data-slot=button]{min-height:32px;font-size:12px;padding:0 11px}
 .custom-amenity-category{min-width:220px;flex-shrink:0}
+.season-switch{display:inline-flex;background:#f0f3f7;border-radius:8px;padding:4px;gap:4px;margin-bottom:14px}
+.season-tab{padding:8px 16px;font-size:13px;font-weight:500;color:var(--brand-gray);border-radius:6px;background:transparent}
+.season-tab.active{background:#fff;color:var(--brand-navy);box-shadow:0 1px 3px #24344b1a}
+.season-hint{margin-bottom:25px}
+.season-badge{margin-left:10px;font-size:11px;font-weight:500;color:var(--brand-navy);background:var(--brand-navy-soft);padding:2px 8px;border-radius:20px;vertical-align:middle}
+.policy-deposit{margin-top:22px;padding-top:20px;border-top:1px solid #edf0f2}
+.policy-deposit h4{font-size:14px;font-weight:550;color:var(--brand-navy);margin-bottom:12px}
+.policy-deposit .form-grid{margin-top:16px}
 .summary-panel h4{font-size:12px;letter-spacing:1px;color:var(--brand-gray)}
 .summary-section.current{background:var(--brand-navy-soft);color:var(--brand-navy)}
 .summary-hint{font-size:12px!important}
