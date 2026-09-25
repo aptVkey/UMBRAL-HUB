@@ -1,5 +1,6 @@
 import {database} from "@/db/raw";
 import {unlinkConflict,conflictMessage} from "./operator-server";
+import {publishNewCustomAmenities} from "./amenity-catalog";
 import type {Property} from "./property";
 export type ApplyResult={ok:true,property:Property&{updatedAt:string}}|{ok:false,status:number,error:string};
 /**
@@ -29,6 +30,7 @@ export async function applyPropertySave(p:Property):Promise<ApplyResult>{
   ...p.rates.map(r=>db.prepare(`INSERT INTO property_rates (id,property_id,name,code) SELECT ?,?,?,? WHERE ${guard} ON CONFLICT(id) DO UPDATE SET name=excluded.name,code=excluded.code WHERE property_rates.property_id=excluded.property_id`).bind(r.id,p.id,r.name,r.code,p.id,version)),
  ];
  const [update]=await db.batch([query,...sync]);if(!update.meta.changes)return {ok:false,status:409,error:"Esta ficha foi alterada noutra janela. As tuas alterações continuam aqui; copia-as antes de reabrir a ficha atualizada."};
+ try{await publishNewCustomAmenities(p.amenities)}catch(e){console.error("Publish custom amenities",e)} // best-effort: a falha aqui não deve impedir a gravação do alojamento
  return {ok:true,property:{...p,version,updatedAt:now}};
 }
 export async function applyPropertyDelete(id:string,version:number):Promise<{ok:true}|{ok:false,status:number,error:string}>{
