@@ -1,4 +1,5 @@
 import {database,storage} from "@/db/raw";
+import {checkContract} from "./corporate";
 import type {Corporate,ContractInfo,SavedCorporate} from "./corporate";
 export type StoredContract=ContractInfo&{key:string};
 export type CorporateRow={id:string,payload:string,version:number,updated_at:string,contract:string|null,last_write_id:string};
@@ -15,4 +16,32 @@ export async function fileType(file:File){const b=new Uint8Array(await file.slic
  if(ext==='png'&&matches([137,80,78,71,13,10,26,10]))return 'image/png';
  if((ext==='jpg'||ext==='jpeg')&&matches([255,216,255]))return 'image/jpeg';
  return null;
+}
+export type ApplyCorporateResult={ok:true,corporate:SavedCorporate}|{ok:false,status:number,error:string};
+/**
+ * Grava uma empresa (criação ou atualização), com o contrato opcional. Partilhado pela rota
+ * direta (nível "edit") e pela aprovação de pedidos de alteração (aí sem ficheiro: mantém o
+ * contrato atual, porque um contribuidor não pode propor anexos).
+ */
+export async function applyCorporateSave(p:Corporate,upload:File|null,removeContract:boolean):Promise<ApplyCorporateResult>{
+ let uploadedKey:string|null=null,committed=false;
+ try{
+ const db=database(),old=await findCorporate(p.id);
+ if((p.version===0&&old)||(p.version>0&&(!old||old.version!==p.version)))return {ok:false,status:409,error:"Esta empresa foi alterada noutra janela. As tuas alterações continuam aqui; copia-as antes de reabrir a ficha atualizada."};
+ if(p.propertyIds.length){const {results}=await db.prepare('SELECT id FROM properties').all<{id:string}>();const available=new Set(results.map(r=>r.id));if(p.propertyIds.some(id=>!available.has(id)))return {ok:false,status:409,error:"A lista de alojamentos mudou. Atualiza a lista no separador Alojamentos e revê a seleção."};}
+ let contract:StoredContract|null=old?.contract?JSON.parse(old.contract):null;const oldContract=contract;
+ if(removeContract)contract=null;
+ if(upload){const error=checkContract(upload);if(error)return {ok:false,status:400,error};const mime=await fileType(upload);if(!mime)return {ok:false,status:400,error:"O conteúdo do ficheiro não corresponde ao formato indicado. Seleciona um contrato válido."};
+  uploadedKey=`corporate-contracts/${p.id}/${crypto.randomUUID()}`;const name=upload.name.replace(/[\/\\\x00-\x1F\x7F]/g,'_').slice(0,200)||'contrato';
+  await bucket().put(uploadedKey,upload.stream(),{httpMetadata:{contentType:mime}});
+  contract={key:uploadedKey,name,size:upload.size,type:mime,uploadedAt:new Date().toISOString()};
+ }
+ const now=new Date().toISOString(),version=p.version+1,token=crypto.randomUUID(),payload=JSON.stringify({...p,version}),serialized=contract?JSON.stringify(contract):null;
+ const first=p.version===0?db.prepare("INSERT INTO corporates (id,name,payload,version,updated_at,last_write_id,contract) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING").bind(p.id,p.name,payload,version,now,token,serialized):db.prepare("UPDATE corporates SET name=?,payload=?,version=?,updated_at=?,last_write_id=?,contract=? WHERE id=? AND version=?").bind(p.name,payload,version,now,token,serialized,p.id,p.version);
+ const statements=[first,db.prepare("DELETE FROM corporate_properties WHERE corporate_id=? AND EXISTS (SELECT 1 FROM corporates WHERE id=? AND last_write_id=?)").bind(p.id,p.id,token),...p.propertyIds.map(id=>db.prepare("INSERT INTO corporate_properties (corporate_id,property_id) SELECT ?,? WHERE EXISTS (SELECT 1 FROM corporates WHERE id=? AND last_write_id=?)").bind(p.id,id,p.id,token))];
+ const saved=await db.batch(statements);if(!saved[0].meta.changes){if(uploadedKey)await bucket().delete(uploadedKey);return {ok:false,status:409,error:"Esta empresa foi alterada noutra janela. Reabre a ficha atualizada antes de voltar a guardar."};}
+ committed=true;
+ if(oldContract&&oldContract.key!==contract?.key){try{await bucket().delete(oldContract.key)}catch(e){console.error("Remove superseded contract",e)}}
+ return {ok:true,corporate:present({id:p.id,payload,version,updated_at:now,contract:serialized,last_write_id:token},p.propertyIds)};
+ }catch(e){if(uploadedKey&&!committed){try{await bucket().delete(uploadedKey)}catch{}}console.error("Save corporate",e);return {ok:false,status:503,error:"Não foi possível guardar a empresa e o contrato. Mantivemos as tuas alterações; confirma os alojamentos selecionados e tenta novamente."};}
 }

@@ -28,6 +28,21 @@ export async function guard(request:Request,area:AreaKey|AreaKey[],level:"view"|
  if(!list.some(a=>atLeast(access.areas[a],level)))return {response:deny(level==="edit"?"Só tens acesso de consulta a esta área.":"Não tens acesso a esta área.")};
  return {access};
 }
+export type EditGate={mode:"edit"|"propose",access:Access}|{response:Response};
+/**
+ * Como guard(), mas para escrever num registo: "edit" aplica já a alteração, "propose" fica
+ * a aguardar aprovação de um editor ou administrador. Cada rota decide o que fazer em cada modo.
+ */
+export async function guardEditable(request:Request,area:AreaKey|AreaKey[]):Promise<EditGate>{
+ const access=await getAccess(request),list=Array.isArray(area)?area:[area];
+ if(!access.authenticated)return {response:json({error:"Inicia sessão para continuar."},401)};
+ if(access.noAccess)return {response:deny("Não tens acesso a esta aplicação. Pede a um administrador que te adicione em Definições.")};
+ if(list.some(a=>access.areas[a]==="edit"))return {mode:"edit",access};
+ if(list.some(a=>access.areas[a]==="propose"))return {mode:"propose",access};
+ return {response:deny("Não tens permissão para editar esta área.")};
+}
+/** Pode aprovar ou rejeitar pedidos de alteração desta área. */
+export const canApprove=(a:Access,area:AreaKey)=>a.isAdmin||a.areas[area]==="edit";
 export const propertyAllowed=(a:Access,id:string)=>a.propertyIds===null||a.propertyIds.includes(id);
 /** Todos os alojamentos indicados têm de estar dentro do âmbito do utilizador. */
 export const scopeOk=(a:Access,ids:string[])=>a.propertyIds===null||ids.every(id=>a.propertyIds!.includes(id));

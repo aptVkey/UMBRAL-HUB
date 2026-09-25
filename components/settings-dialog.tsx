@@ -40,7 +40,7 @@ export default function SettingsDialog({open,onOpenChange,me}:{open:boolean,onOp
  function edit(m?:SavedMember){setPassword('');setShowPw(false);const d=m?toDraft(m):newMember();setDraft(d);setBaseline(JSON.stringify(d));setSaved(m||null);setError('');setIssues([]);setPropFilter('');loadProperties()}
  function patch(p:Partial<Member>){setDraft(d=>d?{...d,...p}:d);if(issues.length){setIssues([]);setError('')}}
  function setRole(role:Role){if(!draft)return;patch({role,areas:presetAreas(role,draft.areas),...(role==='Administrador'?{propertyScope:'all' as const,propertyIds:[]}:{})})}
- function setLevel(key:AreaKey,level:Level){if(!draft)return;const areas={...draft.areas,[key]:level};const same=(v:Level)=>Object.values(areas).every(l=>l===v);patch({areas,role:same('edit')?'Editor':same('view')?'Leitor':'Personalizado'})}
+ function setLevel(key:AreaKey,level:Level){if(!draft)return;const areas={...draft.areas,[key]:level};const same=(v:Level)=>Object.values(areas).every(l=>l===v);patch({areas,role:same('edit')?'Editor':same('propose')?'Contribuidor':same('view')?'Leitor':'Personalizado'})}
  function back(){if(busy)return;if(dirty)setConfirmLeave(true);else setDraft(null)}
  async function save(){if(!draft||busy)return;setError('');setIssues([]);const parsed=memberSchema.safeParse(draft);if(!parsed.success){setIssues(parsed.error.issues);setError('Revê os campos assinalados antes de guardar.');return}
   if((!saved||password)&&password.length<8){const m='A palavra-passe deve ter pelo menos 8 caracteres.';setIssues([{path:['password'],message:m}]);setError(m);return}
