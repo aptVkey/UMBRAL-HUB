@@ -8,7 +8,7 @@ import {operatorSchema} from "@/lib/operator";
 import {collaboratorSchema} from "@/lib/collab";
 import {toolSchema} from "@/lib/tool";
 import {applyPropertySave,applyPropertyDelete} from "@/lib/property-server";
-import {applyCorporateSave} from "@/lib/corporate-server";
+import {applyCorporateSave,applyCorporateDelete} from "@/lib/corporate-server";
 import {applyCampaignSave,applyCampaignDelete} from "@/lib/campaign-server";
 import {applyOperatorSave,applyOperatorDelete} from "@/lib/operator-server";
 import {applyCollaboratorSave,applyCollaboratorDelete} from "@/lib/collab-server";
@@ -21,7 +21,7 @@ async function apply(req:{entityType:string,action:string,payload:Record<string,
  const del=req.action==="delete";
  switch(req.entityType){
   case "property":{if(del)return applyPropertyDelete(req.entityId,req.baseVersion);const p=propertySchema.safeParse(req.payload);if(!p.success)return {ok:false,status:400,error:"A proposta ficou inválida. Pede ao autor para a refazer."};const r=await applyPropertySave(p.data);return r.ok?{ok:true}:r;}
-  case "corporate":{if(del)return {ok:false,status:400,error:"As empresas não podem ser eliminadas por aqui."};const p=corporateSchema.safeParse(req.payload);if(!p.success)return {ok:false,status:400,error:"A proposta ficou inválida. Pede ao autor para a refazer."};const r=await applyCorporateSave(p.data,null,false);return r.ok?{ok:true}:r;}
+  case "corporate":{if(del)return applyCorporateDelete(req.entityId,req.baseVersion);const p=corporateSchema.safeParse(req.payload);if(!p.success)return {ok:false,status:400,error:"A proposta ficou inválida. Pede ao autor para a refazer."};const r=await applyCorporateSave(p.data,null,false);return r.ok?{ok:true}:r;}
   case "campaign":{if(del)return applyCampaignDelete(req.entityId,req.baseVersion);const p=campaignSchema.safeParse(req.payload);if(!p.success)return {ok:false,status:400,error:"A proposta ficou inválida. Pede ao autor para a refazer."};const r=await applyCampaignSave(p.data);return r.ok?{ok:true}:r;}
   case "operator":{if(del)return applyOperatorDelete(req.entityId,req.baseVersion);const p=operatorSchema.safeParse(req.payload);if(!p.success)return {ok:false,status:400,error:"A proposta ficou inválida. Pede ao autor para a refazer."};const r=await applyOperatorSave(p.data,p.data.propertyIds);return r.ok?{ok:true}:r;}
   case "collaborator":{if(del)return applyCollaboratorDelete(req.entityId,req.baseVersion);const p=collaboratorSchema.safeParse(req.payload);if(!p.success)return {ok:false,status:400,error:"A proposta ficou inválida. Pede ao autor para a refazer."};const r=await applyCollaboratorSave(p.data);return r.ok?{ok:true}:r;}

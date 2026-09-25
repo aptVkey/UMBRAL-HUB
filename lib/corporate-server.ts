@@ -45,3 +45,17 @@ export async function applyCorporateSave(p:Corporate,upload:File|null,removeCont
  return {ok:true,corporate:present({id:p.id,payload,version,updated_at:now,contract:serialized,last_write_id:token},p.propertyIds)};
  }catch(e){if(uploadedKey&&!committed){try{await bucket().delete(uploadedKey)}catch{}}console.error("Save corporate",e);return {ok:false,status:503,error:"Não foi possível guardar a empresa e o contrato. Mantivemos as tuas alterações; confirma os alojamentos selecionados e tenta novamente."};}
 }
+/**
+ * Elimina uma empresa: liga-se aos alojamentos e ao contrato guardado no Storage, ambos
+ * removidos com o registo. Partilhado pela rota direta e pela aprovação de um pedido de eliminação.
+ */
+export async function applyCorporateDelete(id:string,version:number):Promise<{ok:true}|{ok:false,status:number,error:string}>{
+ const db=database(),old=await findCorporate(id);
+ if(!old)return {ok:false,status:404,error:"A empresa já não existe."};
+ if(old.version!==version)return {ok:false,status:409,error:"A ficha foi alterada. Reabre-a antes de eliminar."};
+ const contract:StoredContract|null=old.contract?JSON.parse(old.contract):null;
+ const [del]=await db.batch([db.prepare("DELETE FROM corporates WHERE id=? AND version=?").bind(id,version),db.prepare("DELETE FROM corporate_properties WHERE corporate_id=?").bind(id)]);
+ if(!del.meta.changes)return {ok:false,status:409,error:"A ficha foi alterada. Reabre-a antes de eliminar."};
+ if(contract){try{await bucket().delete(contract.key)}catch(e){console.error("Remove contract on corporate delete",e)}}
+ return {ok:true};
+}
