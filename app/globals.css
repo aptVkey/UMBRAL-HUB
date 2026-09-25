@@ -182,6 +182,15 @@ h2,h3{color:var(--brand-navy)}
 .amenity.selected{border-color:var(--brand-turquoise);background:var(--brand-turquoise-soft)}
 .amenity.selected .check-line{color:var(--brand-navy)}
 .amenity textarea{font-size:14px;border-color:#ccebee}
+.amenity-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.amenity-actions{display:flex;gap:2px;flex-shrink:0}
+.amenity-actions [data-slot=button]{width:26px;min-height:26px;height:26px;padding:0;color:#8a97a3}
+.amenity-actions [data-slot=button]:hover{color:var(--brand-navy);background:var(--brand-navy-soft)}
+.amenity-rename{display:flex;flex-direction:column;gap:8px}
+.amenity-rename input,.amenity-rename [data-slot=select-trigger]{width:100%;min-height:36px;font-size:13px}
+.amenity-rename-actions{display:flex;justify-content:flex-end;gap:8px}
+.amenity-rename-actions [data-slot=button]{min-height:32px;font-size:12px;padding:0 11px}
+.custom-amenity-category{min-width:220px;flex-shrink:0}
 .summary-panel h4{font-size:12px;letter-spacing:1px;color:var(--brand-gray)}
 .summary-section.current{background:var(--brand-navy-soft);color:var(--brand-navy)}
 .summary-hint{font-size:12px!important}
