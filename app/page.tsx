@@ -1,6 +1,6 @@
 "use client";
 import {useState,useEffect,useRef} from 'react';
-import {KeyRound,DoorOpen,Network,Wrench,Hotel,Building2,Handshake,Megaphone,GraduationCap,Plus,ChevronRight,ArrowLeft,BedDouble,MapPin,Check,Save,Trash2,Wifi,FileText,ShieldCheck,Settings2,Wallet,LoaderCircle,PencilLine,Layers,ArrowUpRight,Search,Bell,Image,ImagePlus} from 'lucide-react';
+import {KeyRound,DoorOpen,Network,Wrench,Hotel,Building2,Handshake,Megaphone,GraduationCap,Plus,ChevronRight,ArrowLeft,BedDouble,MapPin,Check,Save,Trash2,Wifi,FileText,ShieldCheck,Settings2,Wallet,LoaderCircle,PencilLine,Layers,ArrowUpRight,Search,Bell,Image,ImagePlus,Download} from 'lucide-react';
 import {SidebarProvider,Sidebar,SidebarHeader,SidebarContent,SidebarFooter,SidebarMenu,SidebarMenuItem,SidebarMenuButton,SidebarTrigger,useSidebar} from '@/components/ui/sidebar';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -48,6 +48,7 @@ export default function Home(){
  const photoInputRefs=useRef<Record<string,HTMLInputElement|null>>({});
  const [draggingPhoto,setDraggingPhoto]=useState<{id:string,roomId:string}|null>(null),[dragOverPhoto,setDragOverPhoto]=useState<string|null>(null);
  const [lightbox,setLightbox]=useState<{roomId:string,index:number}|null>(null),[lightboxApi,setLightboxApi]=useState<CarouselApi|null>(null),[lightboxIndex,setLightboxIndex]=useState(0);
+ const [downloadingZip,setDownloadingZip]=useState(false);
  useEffect(()=>{if(!lightboxApi)return;const update=()=>setLightboxIndex(lightboxApi.selectedScrollSnap());update();lightboxApi.on('select',update);return()=>{lightboxApi.off('select',update)}},[lightboxApi]);
  const [corporateState,setCorporateState]=useState({dirty:false,busy:false});
  const [trainingState,setTrainingState]=useState({dirty:false,busy:false});
@@ -77,6 +78,12 @@ export default function Home(){
  async function persistPhotoOrder(roomId:string,order:string[]){if(!draft)return;
   try{const r=await fetch('/api/properties/photos',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({propertyId:draft.id,roomId,order})});const data:{error?:string}=await r.json();if(!r.ok)throw Error(data.error)}
   catch(e){toast.error(e instanceof Error?e.message:'Não foi possível guardar a nova ordem.');loadPhotos(draft.id)}}
+ async function downloadAllPhotos(){if(!draft||downloadingZip)return;setDownloadingZip(true);try{
+  const r=await fetch(`/api/properties/photos/download?propertyId=${draft.id}`,{cache:'no-store'});
+  if(!r.ok){const data=await r.json().catch(()=>null) as {error?:string}|null;throw Error(data?.error||'Não foi possível descarregar as fotos.')}
+  const blob=await r.blob();const match=/filename="([^"]+)"/.exec(r.headers.get('Content-Disposition')||'');const filename=match?match[1]:`${draft.name||'fotos'}.zip`;
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }catch(e){toast.error(e instanceof Error?e.message:'Não foi possível descarregar as fotos.')}finally{setDownloadingZip(false)}}
  const [me,setMe]=useState<Me|null>(null),[gate,setGate]=useState<{setup:boolean}|null>(null),[meError,setMeError]=useState(''),[settingsOpen,setSettingsOpen]=useState(false);
  const [crOpen,setCrOpen]=useState(false),[reviewCount,setReviewCount]=useState(0);
  async function loadMe(){setMeError('');try{const r=await fetch('/api/me',{cache:'no-store'});const data:{me?:Me|null,authenticated?:boolean,setupRequired?:boolean,error?:string}=await r.json();if(!r.ok)throw Error(data.error);if(!data.authenticated||!data.me){setGate({setup:!!data.setupRequired});return}setGate(null);setMe(data.me)}catch(e){setMeError(e instanceof Error?e.message:'Não foi possível verificar o teu acesso.')}}
@@ -146,7 +153,7 @@ export default function Home(){
  <p className="field-help season-hint">As secções assinaladas com a época mudam de conteúdo consoante a época escolhida acima. As restantes (Durante a estadia) aplicam-se o ano todo.</p>
  {policyGroups.map(g=><div className="policy-group" key={g.title}><h3>{g.title}{g.seasonal&&<span className="season-badge">{SEASONS.find(s=>s.id===season)?.label}</span>}</h3><div className="form-grid">{g.fields.map(f=>{const k=policyKey(f.key,g.seasonal,season);return <Field key={k} label={f.label} value={draft.policies[k]||''} onChange={v=>patch({policies:{...draft.policies,[k]:v}})} area={'area' in f&&f.area} fullWidth={'fullWidth' in f&&f.fullWidth} type={'type' in f?f.type:'text'} placeholder={'placeholder' in f?f.placeholder:undefined}/>})}</div>
  {g.title==='Taxas e Cauções'&&<div className="policy-deposit"><h4>Caução</h4><label className="check-line"><Checkbox checked={!!draft.hasDeposit} onCheckedChange={v=>patch({hasDeposit:v===true})}/>Este alojamento pede caução</label>{draft.hasDeposit&&<><div className="form-grid"><Field label="Valor da caução — reserva normal (€)" value={draft.depositNormal?.[season]||''} onChange={v=>patch({depositNormal:{...draft.depositNormal,[season]:v.replace(',','.')}})} placeholder="Ex.: 100"/><Field label="Valor da caução — reserva de grupo (€)" value={draft.depositGroup?.[season]||''} onChange={v=>patch({depositGroup:{...draft.depositGroup,[season]:v.replace(',','.')}})} placeholder="Ex.: 250"/></div><div className="form-grid">{(()=>{const dk=policyKey('deposit',g.seasonal,season);return <Field label="Caução — cobrança e devolução" area fullWidth value={draft.policies[dk]||''} onChange={v=>patch({policies:{...draft.policies,[dk]:v}})}/>})()}</div></>}<p className="field-help">Os valores e a cobrança/devolução variam consoante a época escolhida acima — indicam-se ainda por tipo de reserva.</p></div>}</div>)}</section></TabsContent>
- <TabsContent value="photos"><section className="panel form-panel"><Heading title="Fotos por tipologia" desc="Associa fotografias a cada tipologia registada no separador Tipologias."/>
+ <TabsContent value="photos"><section className="panel form-panel"><Heading title="Fotos por tipologia" desc="Associa fotografias a cada tipologia registada no separador Tipologias.">{!!photos.length&&<Button variant="outline" disabled={downloadingZip} onClick={downloadAllPhotos}>{downloadingZip?<LoaderCircle className="spin"/>:<Download/>} Descarregar todas as fotos</Button>}</Heading>
  {!draft.rooms.length?<SmallEmpty icon={Image} title="Ainda não há tipologias" text="Regista as tipologias no separador Tipologias para poderes adicionar as respetivas fotos."/>
  :!draft.version?<SmallEmpty icon={Image} title="Guarda primeiro o alojamento" text="Depois de guardares a ficha podes começar a adicionar fotos a cada tipologia."/>
  :photosLoading?<div className="loading-list"><Skeleton className="h-24"/><Skeleton className="h-24"/></div>
