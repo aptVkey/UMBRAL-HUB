@@ -202,6 +202,17 @@ h2,h3{color:var(--brand-navy)}
 .policy-deposit h4{font-size:14px;font-weight:550;color:var(--brand-navy);margin-bottom:12px}
 .policy-deposit .form-grid{margin-top:16px}
 .field.force-wide{grid-column:1/-1!important}
+.room-photos{padding:20px 0;border-bottom:1px solid #edf0f2}
+.room-photos:last-child{border-bottom:0;padding-bottom:0}
+.room-photos:first-child{padding-top:0}
+.room-photos-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+.room-photos-head h3{font-size:15px;font-weight:550;color:var(--brand-navy)}
+.room-photos-head [data-slot=button]{font-size:12px;min-height:34px;padding:0 12px}
+.room-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.room-photo{position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;border:1px solid #e4e9ee;background:#f4f6f8}
+.room-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.room-photo-remove{position:absolute!important;top:6px;right:6px;width:28px!important;min-height:28px!important;height:28px!important;background:#ffffffe6!important;color:#a8323d!important;box-shadow:0 1px 4px #0000002e}
+.room-photo-remove:hover{background:#fff!important}
 .summary-panel h4{font-size:12px;letter-spacing:1px;color:var(--brand-gray)}
 .summary-section.current{background:var(--brand-navy-soft);color:var(--brand-navy)}
 .summary-hint{font-size:12px!important}

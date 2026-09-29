@@ -1,6 +1,8 @@
 import {database} from "@/db/raw";
 import {unlinkConflict,conflictMessage} from "./operator-server";
 import {publishNewCustomAmenities} from "./amenity-catalog";
+import {pruneOrphanPhotos} from "./property-photo-server";
+import {bucket} from "./corporate-server";
 import type {Property} from "./property";
 export type ApplyResult={ok:true,property:Property&{updatedAt:string}}|{ok:false,status:number,error:string};
 /**
@@ -31,6 +33,7 @@ export async function applyPropertySave(p:Property):Promise<ApplyResult>{
  ];
  const [update]=await db.batch([query,...sync]);if(!update.meta.changes)return {ok:false,status:409,error:"Esta ficha foi alterada noutra janela. As tuas alterações continuam aqui; copia-as antes de reabrir a ficha atualizada."};
  try{await publishNewCustomAmenities(p.amenities)}catch(e){console.error("Publish custom amenities",e)} // best-effort: a falha aqui não deve impedir a gravação do alojamento
+ try{await pruneOrphanPhotos(p.id,p.rooms.map(r=>r.id))}catch(e){console.error("Prune orphan room photos",e)} // idem: tipologias removidas deixam as respetivas fotos órfãs
  return {ok:true,property:{...p,version,updatedAt:now}};
 }
 export async function applyPropertyDelete(id:string,version:number):Promise<{ok:true}|{ok:false,status:number,error:string}>{
@@ -39,7 +42,9 @@ export async function applyPropertyDelete(id:string,version:number):Promise<{ok:
  if(linked)return {ok:false,status:409,error:"Este alojamento está associado a um acordo corporate. Remove primeiro a associação na ficha da empresa."};
  const inCampaign=await db.prepare("SELECT campaign_id FROM campaign_properties WHERE property_id=? LIMIT 1").bind(id).first();
  if(inCampaign)return {ok:false,status:409,error:"Este alojamento está associado a uma campanha. Remove primeiro a associação na ficha da campanha."};
+ const {results:photos}=await db.prepare("SELECT key FROM property_room_photos WHERE property_id=?").bind(id).all<{key:string}>();
  const r=await db.prepare("DELETE FROM properties WHERE id=? AND version=?").bind(id,version).run();
  if(!r.meta.changes)return {ok:false,status:409,error:"A ficha foi alterada. Reabre-a antes de eliminar."};
+ for(const p of photos){try{await bucket().delete(p.key)}catch(e){console.error("Remove room photo on property delete",e)}}
  return {ok:true};
 }

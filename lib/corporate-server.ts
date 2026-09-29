@@ -15,6 +15,7 @@ export async function fileType(file:File){const b=new Uint8Array(await file.slic
  if(ext==='docx'&&matches([80,75,3,4]))return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
  if(ext==='png'&&matches([137,80,78,71,13,10,26,10]))return 'image/png';
  if((ext==='jpg'||ext==='jpeg')&&matches([255,216,255]))return 'image/jpeg';
+ if(ext==='webp'&&matches([82,73,70,70])&&b[8]===87&&b[9]===69&&b[10]===66&&b[11]===80)return 'image/webp';
  return null;
 }
 export type ApplyCorporateResult={ok:true,corporate:SavedCorporate}|{ok:false,status:number,error:string};
