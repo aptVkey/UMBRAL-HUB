@@ -12,7 +12,7 @@ export const unitSchema = z.object({id,number:short.trim().min(1,"Indica o núme
 export const MAX_PHOTO_SIZE=10*1024*1024;
 export const PHOTO_ACCEPT=".png,.jpg,.jpeg,.webp";
 export function checkPhoto(file:{size:number;name:string}){if(file.size===0)return "O ficheiro está vazio.";if(file.size>MAX_PHOTO_SIZE)return "Cada foto pode ter no máximo 10 MB.";if(!/\.(png|jpe?g|webp)$/i.test(file.name))return "Utiliza imagens PNG, JPG ou WEBP.";return "";}
-export type RoomPhoto={id:string;roomId:string;name:string;size:number;type:string;uploadedBy:string;uploadedAt:string};
+export type RoomPhoto={id:string;roomId:string;name:string;size:number;type:string;uploadedBy:string;uploadedAt:string;position:number};
 export const amenitySchema = z.object({id:short,label:required,group:short,enabled:z.boolean(),rules:text,custom:z.boolean()});
 export const propertySchema = z.object({
  id,version:z.number().int().min(0),name:required,code:short,type:short,status:z.enum(["Rascunho","Ativo","Inativo"]),city:short,region:short,address:text,postal:short,license:short,email:z.string().max(180).refine(v=>!v||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),"Email inválido."),phone:short,website:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),driveUrl:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),reviewLink:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),description:text,

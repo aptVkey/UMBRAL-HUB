@@ -9,6 +9,8 @@ import {Checkbox} from '@/components/ui/checkbox';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
+import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
+import {Carousel,CarouselContent,CarouselItem,CarouselPrevious,CarouselNext,type CarouselApi} from '@/components/ui/carousel';
 import {Empty,EmptyHeader,EmptyTitle,EmptyDescription,EmptyMedia} from '@/components/ui/empty';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Toaster} from '@/components/ui/sonner';
@@ -44,6 +46,9 @@ export default function Home(){
  const [photos,setPhotos]=useState<RoomPhoto[]>([]),[photosLoading,setPhotosLoading]=useState(false),[photosError,setPhotosError]=useState('');
  const [photoBusy,setPhotoBusy]=useState<string|null>(null),[photoDeleting,setPhotoDeleting]=useState<string|null>(null);
  const photoInputRefs=useRef<Record<string,HTMLInputElement|null>>({});
+ const [draggingPhoto,setDraggingPhoto]=useState<{id:string,roomId:string}|null>(null),[dragOverPhoto,setDragOverPhoto]=useState<string|null>(null);
+ const [lightbox,setLightbox]=useState<{roomId:string,index:number}|null>(null),[lightboxApi,setLightboxApi]=useState<CarouselApi|null>(null),[lightboxIndex,setLightboxIndex]=useState(0);
+ useEffect(()=>{if(!lightboxApi)return;const update=()=>setLightboxIndex(lightboxApi.selectedScrollSnap());update();lightboxApi.on('select',update);return()=>{lightboxApi.off('select',update)}},[lightboxApi]);
  const [corporateState,setCorporateState]=useState({dirty:false,busy:false});
  const [trainingState,setTrainingState]=useState({dirty:false,busy:false});
  const [partnershipState,setPartnershipState]=useState({dirty:false,busy:false});
@@ -59,6 +64,19 @@ export default function Home(){
    catch(e){toast.error(e instanceof Error?e.message:'Não foi possível guardar a foto.')}}
   }finally{setPhotoBusy(null)}}
  function confirmDeletePhoto(photo:RoomPhoto){setConfirm({title:'Eliminar foto?',desc:'Esta foto será eliminada de forma permanente.',label:'Eliminar',action:async()=>{if(!draft)return;setPhotoDeleting(photo.id);try{const r=await fetch(`/api/properties/photos/${photo.id}?propertyId=${draft.id}`,{method:'DELETE'});const data:{error?:string}=await r.json();if(!r.ok)throw Error(data.error);setPhotos(p=>p.filter(x=>x.id!==photo.id));toast.success('Foto eliminada.')}catch(e){toast.error(e instanceof Error?e.message:'Não foi possível eliminar.')}finally{setPhotoDeleting(null)}}})}
+ /** Arrastar uma foto por cima de outra reordena-as localmente de imediato; a gravação só acontece ao largar. */
+ /** A ordem só muda uma vez, ao largar (não durante o arrastar) — mexer no DOM a meio de um drag nativo interrompe-o. */
+ function dropPhoto(roomId:string,targetId:string){const dragging=draggingPhoto;setDraggingPhoto(null);setDragOverPhoto(null);
+  if(!draft||!dragging||dragging.roomId!==roomId||dragging.id===targetId)return;
+  const room=photos.filter(p=>p.roomId===roomId),rest=photos.filter(p=>p.roomId!==roomId);
+  const from=room.findIndex(p=>p.id===dragging.id),to=room.findIndex(p=>p.id===targetId);
+  if(from===-1||to===-1)return;
+  const next=[...room];const [moved]=next.splice(from,1);next.splice(to,0,moved);
+  setPhotos([...rest,...next]);
+  persistPhotoOrder(roomId,next.map(p=>p.id));}
+ async function persistPhotoOrder(roomId:string,order:string[]){if(!draft)return;
+  try{const r=await fetch('/api/properties/photos',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({propertyId:draft.id,roomId,order})});const data:{error?:string}=await r.json();if(!r.ok)throw Error(data.error)}
+  catch(e){toast.error(e instanceof Error?e.message:'Não foi possível guardar a nova ordem.');loadPhotos(draft.id)}}
  const [me,setMe]=useState<Me|null>(null),[gate,setGate]=useState<{setup:boolean}|null>(null),[meError,setMeError]=useState(''),[settingsOpen,setSettingsOpen]=useState(false);
  const [crOpen,setCrOpen]=useState(false),[reviewCount,setReviewCount]=useState(0);
  async function loadMe(){setMeError('');try{const r=await fetch('/api/me',{cache:'no-store'});const data:{me?:Me|null,authenticated?:boolean,setupRequired?:boolean,error?:string}=await r.json();if(!r.ok)throw Error(data.error);if(!data.authenticated||!data.me){setGate({setup:!!data.setupRequired});return}setGate(null);setMe(data.me)}catch(e){setMeError(e instanceof Error?e.message:'Não foi possível verificar o teu acesso.')}}
@@ -136,13 +154,20 @@ export default function Home(){
  :draft.rooms.map(room=>{const roomPhotos=photos.filter(ph=>ph.roomId===room.id),roomBusy=photoBusy===room.id;return <div className="room-photos" key={room.id}>
   <div className="room-photos-head"><h3>{room.name||'Tipologia sem nome'}</h3><Button variant="outline" size="sm" disabled={roomBusy} onClick={()=>photoInputRefs.current[room.id]?.click()}>{roomBusy?<LoaderCircle className="spin"/>:<ImagePlus/>} Adicionar fotos</Button>
   <input ref={el=>{photoInputRefs.current[room.id]=el}} type="file" accept={PHOTO_ACCEPT} multiple className="sr-only" onChange={e=>{uploadRoomPhotos(room.id,e.target.files);e.target.value=''}}/></div>
-  {roomPhotos.length?<div className="room-photo-grid">{roomPhotos.map(ph=><div className="room-photo" key={ph.id}><img src={`/api/properties/photos/file?id=${ph.id}`} alt={ph.name} loading="lazy"/><Button variant="ghost" size="icon" className="room-photo-remove" aria-label={`Eliminar ${ph.name}`} disabled={photoDeleting===ph.id} onClick={()=>confirmDeletePhoto(ph)}>{photoDeleting===ph.id?<LoaderCircle className="spin"/>:<Trash2 size={14}/>}</Button></div>)}</div>
+  {roomPhotos.length?<div className="room-photo-grid">{roomPhotos.map((ph,i)=><div className={'room-photo '+(draggingPhoto?.id===ph.id?'dragging ':'')+(dragOverPhoto===ph.id&&draggingPhoto?.id!==ph.id?'drag-over':'')} key={ph.id} draggable onDragStart={()=>setDraggingPhoto({id:ph.id,roomId:room.id})} onDragOver={e=>{e.preventDefault();if(draggingPhoto?.roomId===room.id)setDragOverPhoto(ph.id)}} onDragLeave={()=>setDragOverPhoto(id=>id===ph.id?null:id)} onDrop={e=>{e.preventDefault();dropPhoto(room.id,ph.id)}} onDragEnd={()=>{setDraggingPhoto(null);setDragOverPhoto(null)}}>
+  <button type="button" className="room-photo-view" aria-label={`Ver ${ph.name} em ecrã inteiro`} onClick={()=>setLightbox({roomId:room.id,index:i})}><img src={`/api/properties/photos/file?id=${ph.id}`} alt={ph.name} loading="lazy"/></button>
+  <Button variant="ghost" size="icon" className="room-photo-remove" aria-label={`Eliminar ${ph.name}`} disabled={photoDeleting===ph.id} onClick={()=>confirmDeletePhoto(ph)}>{photoDeleting===ph.id?<LoaderCircle className="spin"/>:<Trash2 size={14}/>}</Button></div>)}</div>
   :<p className="field-help">Ainda não há fotos para esta tipologia.</p>}
  </div>})}
  </section></TabsContent>
  </fieldset></Tabs><div className="save-bar"><span>{dirty?<><PencilLine size={15}/> Alterações por guardar</>:draft.version?<><Check size={16}/> Ficha guardada</>:<>Nova ficha · ainda não guardada</>}</span><Button disabled={busy} onClick={save}>{busy?<LoaderCircle className="spin"/>:<Save/>} Guardar ficha</Button></div></div>
  <aside className="editor-aside"><section className="panel summary-panel"><div className="summary-monogram">{draft.name?draft.name.slice(0,2).toUpperCase():'U'}</div><h3>{draft.name||'Novo alojamento'}</h3><p>{draft.city||'Localidade por preencher'}</p><div className="summary-stats"><div><strong>{draft.rooms.length}</strong><span>Tipologias</span></div><div><strong>{countRooms(draft)}</strong><span>Quartos</span></div></div><h4>NESTA FICHA</h4>{sections.map((s,i)=><button key={s.id} onClick={()=>setTab(s.id)} className={'summary-section '+(tab===s.id?'current':'')}><s.icon size={15}/><span>{s.label}</span>{statusFilled[i]?<Check size={15} className="section-check"/>:<span className="unfilled"/>}</button>)}<p className="summary-hint">O visto indica que a secção contém informação.</p></section><div className="save-reminder"><ShieldCheck size={18}/><p>Guarda a ficha para manter a informação disponível nas próximas consultas.</p></div>{draft.version>0&&<Button className="delete-property" variant="ghost" disabled={busy} onClick={()=>setConfirm({title:'Eliminar alojamento?',desc:`A ficha de ${draft.name}, incluindo tipologias, tarifas e operadores, será eliminada. Esta ação não pode ser desfeita.`,label:'Eliminar alojamento',action:destroy})}><Trash2/> Eliminar alojamento</Button>}</aside></div></>}
- <footer className="page-footer"><span>UMBRAL HUB</span><span>Centro de informação do grupo</span></footer></div></main><Toaster position="bottom-right"/><AlertDialog open={!!confirm} onOpenChange={v=>{if(!v)setConfirm(null)}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{confirm?.title}</AlertDialogTitle><AlertDialogDescription>{confirm?.desc}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction className="confirm-action" onClick={()=>{const a=confirm?.action;setConfirm(null);a?.()}}>{confirm?.label}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></SidebarProvider>
+ <footer className="page-footer"><span>UMBRAL HUB</span><span>Centro de informação do grupo</span></footer></div></main><Toaster position="bottom-right"/><AlertDialog open={!!confirm} onOpenChange={v=>{if(!v)setConfirm(null)}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{confirm?.title}</AlertDialogTitle><AlertDialogDescription>{confirm?.desc}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction className="confirm-action" onClick={()=>{const a=confirm?.action;setConfirm(null);a?.()}}>{confirm?.label}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+ {lightbox&&(()=>{const roomPhotos=photos.filter(p=>p.roomId===lightbox.roomId);if(!roomPhotos.length)return null;return <Dialog open onOpenChange={v=>{if(!v){setLightbox(null);setLightboxApi(null)}}}><DialogContent className="photo-lightbox" aria-describedby="lightbox-desc"><DialogTitle className="sr-only">Fotos da tipologia</DialogTitle><DialogDescription className="sr-only" id="lightbox-desc">Percorre as fotos desta tipologia. Usa as setas ou as teclas de seta do teclado.</DialogDescription>
+  <Carousel opts={{startIndex:lightbox.index,loop:roomPhotos.length>1}} setApi={setLightboxApi} className="lightbox-carousel"><CarouselContent>{roomPhotos.map(ph=><CarouselItem key={ph.id}><img src={`/api/properties/photos/file?id=${ph.id}`} alt={ph.name} className="lightbox-image"/></CarouselItem>)}</CarouselContent>{roomPhotos.length>1&&<><CarouselPrevious/><CarouselNext/></>}</Carousel>
+  {roomPhotos.length>1&&<p className="lightbox-count">{lightboxIndex+1} / {roomPhotos.length}</p>}
+ </DialogContent></Dialog>})()}
+ </SidebarProvider>
 }
 function SmallEmpty({icon:Icon,title,text}:{icon:any,title:string,text:string}){return <Empty className="small-empty"><EmptyHeader><EmptyMedia variant="icon"><Icon/></EmptyMedia><EmptyTitle>{title}</EmptyTitle><EmptyDescription>{text}</EmptyDescription></EmptyHeader></Empty>}
 function RecordHeader({number,name,onRemove}:{number:number,name:string,onRemove:()=>void}){return <div className="record-heading"><span className="record-number">{String(number).padStart(2,'0')}</span><h3>{name}</h3><Button variant="ghost" size="icon" aria-label={`Remover ${name}`} onClick={onRemove}><Trash2 size={16}/></Button></div>}
