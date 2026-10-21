@@ -8,13 +8,13 @@ export const dynamic="force-dynamic";
 type Row={id:string,payload:string,version:number,updated_at:string};
 export async function GET(request:Request){
  const g=await guard(request,["operators","properties","campaigns"],"view");if("response" in g)return g.response;const access=g.access;
- try{const db=database();const [o,l]=await db.batch([db.prepare("SELECT id,payload,version,updated_at FROM operators ORDER BY lower(name)"),db.prepare("SELECT operator_id,property_id FROM operator_properties")]);
- const links=new Map<string,string[]>();for(const r of l.results as {operator_id:string,property_id:string}[])links.set(r.operator_id,[...(links.get(r.operator_id)||[]),r.property_id]);
+ try{const db=database();const [o,l]=await db.batch([db.prepare("SELECT id,payload,version,updated_at FROM operators ORDER BY lower(name)"),db.prepare("SELECT operator_id,property_id,external_id FROM operator_properties")]);
+ const links=new Map<string,string[]>(),codes=new Map<string,Record<string,string>>();for(const r of l.results as {operator_id:string,property_id:string,external_id:string}[]){links.set(r.operator_id,[...(links.get(r.operator_id)||[]),r.property_id]);if(propertyAllowed(access,r.property_id))codes.set(r.operator_id,{...(codes.get(r.operator_id)||{}),[r.property_id]:r.external_id})}
  const full=atLeast(access.areas.operators,"view");
  const visible=(o.results as Row[]).filter(r=>scopeVisible(access,links.get(r.id)||[]));
  const own=(id:string)=>(links.get(id)||[]).filter(p=>propertyAllowed(access,p));
  if(!full)return reply({slim:true,operators:visible.map(r=>{const p=withDefaults({...JSON.parse(r.payload),id:r.id});return {id:r.id,name:p.name,type:p.type,status:p.status,propertyIds:own(r.id)} as SlimOperator})});
- return reply({slim:false,operators:visible.map(r=>({...withDefaults({...JSON.parse(r.payload),id:r.id}),propertyIds:own(r.id),version:r.version,updatedAt:r.updated_at}) as SavedOperator)});}
+ return reply({slim:false,operators:visible.map(r=>({...withDefaults({...JSON.parse(r.payload),id:r.id}),propertyIds:own(r.id),propertyCodes:codes.get(r.id)||{},version:r.version,updatedAt:r.updated_at}) as SavedOperator)});}
  catch(e){console.error("Load operators",e);return reply({error:"Não foi possível carregar os operadores. Tenta novamente."},503);}
 }
 export async function POST(request:Request){
@@ -31,11 +31,13 @@ export async function POST(request:Request){
  if(old&&!scopeVisible(g.access,existing))return deny("O teu acesso está limitado a alguns alojamentos.");
  // Quem tem acesso limitado só altera as ligações dos seus alojamentos; as restantes mantêm-se.
  const propertyIds=scopedOperatorProperties(g.access,o.propertyIds,existing);
+ // Os IDs no operador só se alteram nos alojamentos que esta pessoa vê; os restantes ficam como estão.
+ const codes=o.propertyCodes===undefined?undefined:Object.fromEntries(propertyIds.filter(id=>propertyAllowed(g.access,id)).map(id=>[id,(o.propertyCodes?.[id]||"").trim()]));
  if(g.mode==="propose"){
-  const requestId=await createChangeRequest({area:"operators",entityType:"operator",entityId:o.id,entityName:o.name,action:"save",payload:{...o,propertyIds},baseVersion:o.version,access:g.access});
+  const requestId=await createChangeRequest({area:"operators",entityType:"operator",entityId:o.id,entityName:o.name,action:"save",payload:{...o,propertyIds,propertyCodes:codes},baseVersion:o.version,access:g.access});
   return reply({proposal:true,requestId,message:"As alterações foram enviadas para aprovação. Um editor ou administrador tem de as aceitar antes de ficarem visíveis."},202);
  }
- const r=await applyOperatorSave(o,propertyIds);
+ const r=await applyOperatorSave(o,propertyIds,codes);
  if(!r.ok)return reply({error:r.error},r.status);
  return reply({operator:r.operator},o.version===0?201:200);
  }catch(e){console.error("Save operator",e);return reply({error:"Não foi possível guardar. As tuas alterações foram mantidas. Confirma os alojamentos selecionados e tenta novamente."},503);}

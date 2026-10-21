@@ -25,10 +25,11 @@ export async function applyPropertySave(p:Property):Promise<ApplyResult>{
  const guard="EXISTS (SELECT 1 FROM properties WHERE id=? AND version=?)";
  const sync=[
   db.prepare(`DELETE FROM property_rates WHERE property_id=? AND id NOT IN (SELECT jsonb_array_elements_text(?::jsonb)) AND ${guard}`).bind(p.id,JSON.stringify(p.rates.map(r=>r.id)),p.id,version),
-  db.prepare(`DELETE FROM operator_properties WHERE property_id=? AND ${guard}`).bind(p.id,p.id,version),
+  // Só remove os operadores desmarcados: as ligações que ficam mantêm o ID do alojamento no operador.
+  db.prepare(`DELETE FROM operator_properties WHERE property_id=? AND operator_id NOT IN (SELECT jsonb_array_elements_text(?::jsonb)) AND ${guard}`).bind(p.id,JSON.stringify(partnerOperatorIds),p.id,version),
   db.prepare(`DELETE FROM unit_keysafes WHERE property_id=? AND ${guard}`).bind(p.id,p.id,version),
   ...Object.entries(keysafes).filter(([,c])=>c.trim()).map(([uid,c])=>db.prepare(`INSERT INTO unit_keysafes (unit_id,property_id,code,updated_at) SELECT ?,?,?,? WHERE ${guard}`).bind(uid,p.id,c.trim(),now,p.id,version)),
-  ...partnerOperatorIds.map(oid=>db.prepare(`INSERT INTO operator_properties (operator_id,property_id) SELECT ?,? WHERE ${guard}`).bind(oid,p.id,p.id,version)),
+  ...partnerOperatorIds.map(oid=>db.prepare(`INSERT INTO operator_properties (operator_id,property_id) SELECT ?,? WHERE ${guard} ON CONFLICT (operator_id,property_id) DO NOTHING`).bind(oid,p.id,p.id,version)),
   ...p.rates.map(r=>db.prepare(`INSERT INTO property_rates (id,property_id,name,code) SELECT ?,?,?,? WHERE ${guard} ON CONFLICT(id) DO UPDATE SET name=excluded.name,code=excluded.code WHERE property_rates.property_id=excluded.property_id`).bind(r.id,p.id,r.name,r.code,p.id,version)),
  ];
  const [update]=await db.batch([query,...sync]);if(!update.meta.changes)return {ok:false,status:409,error:"Esta ficha foi alterada noutra janela. As tuas alterações continuam aqui; copia-as antes de reabrir a ficha atualizada."};

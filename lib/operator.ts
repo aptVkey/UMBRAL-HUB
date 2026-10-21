@@ -12,7 +12,9 @@ export const operatorSchema=z.object({
  contactName:short,contactRole:short,contactEmail:email,contactPhone:short,reservationsEmail:email,financeEmail:email,extranetUrl:url,
  commissionType:z.enum(["percent","fixed"]),commission:z.string().max(15).refine(v=>v===""||/^\d+(\.\d{1,2})?$/.test(v),"Introduz um valor válido (até duas casas decimais)."),
  contractStart:date,contractEnd:date,paymentTerms:long,cancellationRules:long,bookingRules:long,notes:long,
- propertyIds:z.array(z.string().uuid()).max(500)
+ propertyIds:z.array(z.string().uuid()).max(500),
+ /** ID de cada alojamento no sistema do operador (por id de alojamento). Ausente = não mexer nos IDs já guardados. */
+ propertyCodes:z.record(z.string().uuid(),z.string().trim().max(120,"O ID pode ter no máximo 120 caracteres.")).optional()
 }).superRefine((v,ctx)=>{
  if(v.contractStart&&v.contractEnd&&v.contractEnd<v.contractStart)ctx.addIssue({code:"custom",path:["contractEnd"],message:"A data final deve ser igual ou posterior à inicial."});
  if(v.commissionType==="percent"&&Number(v.commission)>100)ctx.addIssue({code:"custom",path:["commission"],message:"A comissão deve estar entre 0 e 100%."});
@@ -21,7 +23,7 @@ export const operatorSchema=z.object({
 export type Operator=z.infer<typeof operatorSchema>;
 export type SavedOperator=Operator&{updatedAt:string};
 export type SlimOperator={id:string;name:string;type:string;status:string;propertyIds:string[]};
-export function newOperator():Operator{return {id:newId(),version:0,name:"",legalName:"",taxId:"",type:"OTA",status:"Rascunho",website:"",country:"",city:"",contactName:"",contactRole:"",contactEmail:"",contactPhone:"",reservationsEmail:"",financeEmail:"",extranetUrl:"",commissionType:"percent",commission:"",contractStart:"",contractEnd:"",paymentTerms:"",cancellationRules:"",bookingRules:"",notes:"",propertyIds:[]};}
+export function newOperator():Operator{return {id:newId(),version:0,name:"",legalName:"",taxId:"",type:"OTA",status:"Rascunho",website:"",country:"",city:"",contactName:"",contactRole:"",contactEmail:"",contactPhone:"",reservationsEmail:"",financeEmail:"",extranetUrl:"",commissionType:"percent",commission:"",contractStart:"",contractEnd:"",paymentTerms:"",cancellationRules:"",bookingRules:"",notes:"",propertyIds:[],propertyCodes:{}};}
 /** Registos migrados ou antigos podem não ter todos os campos. */
 export const withDefaults=(o:Partial<Operator>&{id:string}):Operator=>({...newOperator(),...o});
 export const commissionLabel=(o:Pick<Operator,"commission"|"commissionType">)=>o.commission===""?"Por definir":`${Number(o.commission).toLocaleString("pt-PT",{maximumFractionDigits:2})}${o.commissionType==="percent"?"%":" €"}`;

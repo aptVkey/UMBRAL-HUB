@@ -375,3 +375,6 @@ h2,h3{color:var(--brand-navy)}
 .cr-decide{margin-top:22px;padding-top:20px;border-top:1px solid #e7ecf0;display:flex;flex-direction:column;gap:12px}
 .cr-decide-actions{display:flex;justify-content:flex-end;gap:10px}
 .topbar-right{display:flex;align-items:center;gap:10px}
+.op-code{width:220px;flex-shrink:0;cursor:default}
+.op-code input{height:36px;font-size:13px;background:#fff}
+@media(max-width:767px){.op-code{width:auto;flex-basis:calc(100% - 29px);margin-left:29px}}
