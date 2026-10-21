@@ -8,8 +8,9 @@ export const dynamic="force-dynamic";
 type Row={id:string,payload:string,version:number,updated_at:string};
 export async function GET(request:Request){
  const g=await guard(request,["operators","properties","campaigns"],"view");if("response" in g)return g.response;const access=g.access;
- try{const db=database();const [o,l]=await db.batch([db.prepare("SELECT id,payload,version,updated_at FROM operators ORDER BY lower(name)"),db.prepare("SELECT operator_id,property_id,external_id FROM operator_properties")]);
- const links=new Map<string,string[]>(),codes=new Map<string,Record<string,string>>();for(const r of l.results as {operator_id:string,property_id:string,external_id:string}[]){links.set(r.operator_id,[...(links.get(r.operator_id)||[]),r.property_id]);if(propertyAllowed(access,r.property_id))codes.set(r.operator_id,{...(codes.get(r.operator_id)||{}),[r.property_id]:r.external_id})}
+ try{const db=database();const [o,l,k]=await db.batch([db.prepare("SELECT id,payload,version,updated_at FROM operators ORDER BY lower(name)"),db.prepare("SELECT operator_id,property_id FROM operator_properties"),db.prepare("SELECT operator_id,property_id,external_id FROM operator_property_codes")]);
+ const links=new Map<string,string[]>(),codes=new Map<string,Record<string,string>>();for(const r of l.results as {operator_id:string,property_id:string}[])links.set(r.operator_id,[...(links.get(r.operator_id)||[]),r.property_id]);
+ for(const r of k.results as {operator_id:string,property_id:string,external_id:string}[])if(propertyAllowed(access,r.property_id))codes.set(r.operator_id,{...(codes.get(r.operator_id)||{}),[r.property_id]:r.external_id});
  const full=atLeast(access.areas.operators,"view");
  const visible=(o.results as Row[]).filter(r=>scopeVisible(access,links.get(r.id)||[]));
  const own=(id:string)=>(links.get(id)||[]).filter(p=>propertyAllowed(access,p));
@@ -32,7 +33,7 @@ export async function POST(request:Request){
  // Quem tem acesso limitado só altera as ligações dos seus alojamentos; as restantes mantêm-se.
  const propertyIds=scopedOperatorProperties(g.access,o.propertyIds,existing);
  // Os IDs no operador só se alteram nos alojamentos que esta pessoa vê; os restantes ficam como estão.
- const codes=o.propertyCodes===undefined?undefined:Object.fromEntries(propertyIds.filter(id=>propertyAllowed(g.access,id)).map(id=>[id,(o.propertyCodes?.[id]||"").trim()]));
+ const codes=o.propertyCodes===undefined?undefined:Object.fromEntries(Object.entries(o.propertyCodes).filter(([id])=>propertyAllowed(g.access,id)).map(([id,v])=>[id,v.trim()]));
  if(g.mode==="propose"){
   const requestId=await createChangeRequest({area:"operators",entityType:"operator",entityId:o.id,entityName:o.name,action:"save",payload:{...o,propertyIds,propertyCodes:codes},baseVersion:o.version,access:g.access});
   return reply({proposal:true,requestId,message:"As alterações foram enviadas para aprovação. Um editor ou administrador tem de as aceitar antes de ficarem visíveis."},202);

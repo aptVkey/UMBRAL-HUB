@@ -32,8 +32,8 @@ export type ApplyOperatorResult={ok:true,operator:SavedOperator}|{ok:false,statu
  * Grava um operador (criação ou atualização) com a ligação aos alojamentos escolhidos.
  * Partilhado pela rota direta (nível "edit") e pela aprovação de pedidos de alteração.
  * `propertyIds` já deve vir ajustado ao âmbito de quem gravou (scopedOperatorProperties).
- * `codes` traz o ID no operador dos alojamentos que quem gravou pode ver; os restantes
- * mantêm o ID que já tinham (e um alojamento novo sem ID fica vazio).
+ * `codes` traz o ID no operador dos alojamentos que quem gravou pode ver (marcados ou não);
+ * vazio apaga o ID. Os IDs que não vêm em `codes` ficam como estão.
  */
 export async function applyOperatorSave(o:Operator,propertyIds:string[],codes?:Record<string,string>):Promise<ApplyOperatorResult>{
  const db=database();
@@ -44,16 +44,16 @@ export async function applyOperatorSave(o:Operator,propertyIds:string[],codes?:R
  const {propertyIds:_ignored,propertyCodes:_codes,...core}=o,payload=JSON.stringify({...core,version});
  const first=o.version===0?db.prepare("INSERT INTO operators (id,name,payload,version,updated_at,last_write_id) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING").bind(o.id,o.name,payload,version,now,token):db.prepare("UPDATE operators SET name=?,payload=?,version=?,updated_at=?,last_write_id=? WHERE id=? AND version=?").bind(o.name,payload,version,now,token,o.id,o.version);
  const guardSql="EXISTS (SELECT 1 FROM operators WHERE id=? AND last_write_id=?)";
- // Só remove as ligações desmarcadas; as que ficam mantêm o ID no operador (que é atributo da ligação).
- const link=(id:string)=>codes&&id in codes
-  ?db.prepare(`INSERT INTO operator_properties (operator_id,property_id,external_id) SELECT ?,?,? WHERE ${guardSql} ON CONFLICT (operator_id,property_id) DO UPDATE SET external_id=excluded.external_id`).bind(o.id,id,codes[id],o.id,token)
-  :db.prepare(`INSERT INTO operator_properties (operator_id,property_id) SELECT ?,? WHERE ${guardSql} ON CONFLICT (operator_id,property_id) DO NOTHING`).bind(o.id,id,o.id,token);
- const saved=await db.batch([first,db.prepare(`DELETE FROM operator_properties WHERE operator_id=? AND property_id NOT IN (SELECT jsonb_array_elements_text(?::jsonb)) AND ${guardSql}`).bind(o.id,JSON.stringify(propertyIds),o.id,token),...propertyIds.map(link)]);
+ // O ID no operador é independente da ligação: fica guardado mesmo que o alojamento seja desmarcado.
+ const code=([pid,value]:[string,string])=>value
+  ?db.prepare(`INSERT INTO operator_property_codes (operator_id,property_id,external_id) SELECT ?,?,? WHERE ${guardSql} AND EXISTS (SELECT 1 FROM properties WHERE id=?) ON CONFLICT (operator_id,property_id) DO UPDATE SET external_id=excluded.external_id`).bind(o.id,pid,value,o.id,token,pid)
+  :db.prepare(`DELETE FROM operator_property_codes WHERE operator_id=? AND property_id=? AND ${guardSql}`).bind(o.id,pid,o.id,token);
+ const saved=await db.batch([first,db.prepare(`DELETE FROM operator_properties WHERE operator_id=? AND property_id NOT IN (SELECT jsonb_array_elements_text(?::jsonb)) AND ${guardSql}`).bind(o.id,JSON.stringify(propertyIds),o.id,token),...propertyIds.map(id=>db.prepare(`INSERT INTO operator_properties (operator_id,property_id) SELECT ?,? WHERE ${guardSql} ON CONFLICT (operator_id,property_id) DO NOTHING`).bind(o.id,id,o.id,token)),...Object.entries(codes||{}).map(code)]);
  if(!saved[0].meta.changes)return {ok:false,status:409,error:"Este operador foi alterado noutra janela. Reabre a ficha atualizada antes de voltar a guardar."};
  return {ok:true,operator:{...core,propertyIds,propertyCodes:await linkCodes(o.id),version,updatedAt:now} as SavedOperator};
 }
-/** IDs no operador já guardados, por alojamento. */
-export async function linkCodes(operatorId:string){const {results}=await database().prepare("SELECT property_id,external_id FROM operator_properties WHERE operator_id=?").bind(operatorId).all<{property_id:string,external_id:string}>();return Object.fromEntries(results.map(r=>[r.property_id,r.external_id]));}
+/** IDs no operador já guardados, por alojamento (marcado ou não). */
+export async function linkCodes(operatorId:string){const {results}=await database().prepare("SELECT property_id,external_id FROM operator_property_codes WHERE operator_id=?").bind(operatorId).all<{property_id:string,external_id:string}>();return Object.fromEntries(results.map(r=>[r.property_id,r.external_id]));}
 export async function applyOperatorDelete(id:string,version:number):Promise<{ok:true}|{ok:false,status:number,error:string}>{
  const db=database();
  const used=await db.prepare("SELECT c.name FROM campaign_operators co JOIN campaigns c ON c.id=co.campaign_id WHERE co.operator_id=? LIMIT 1").bind(id).first<{name:string}>();
