@@ -13,6 +13,20 @@ export const MAX_PHOTO_SIZE=10*1024*1024;
 export const PHOTO_ACCEPT=".png,.jpg,.jpeg,.webp";
 export function checkPhoto(file:{size:number;name:string}){if(file.size===0)return "O ficheiro está vazio.";if(file.size>MAX_PHOTO_SIZE)return "Cada foto pode ter no máximo 10 MB.";if(!/\.(png|jpe?g|webp)$/i.test(file.name))return "Utiliza imagens PNG, JPG ou WEBP.";return "";}
 export type RoomPhoto={id:string;roomId:string;name:string;size:number;type:string;uploadedBy:string;uploadedAt:string;position:number};
+/** Move `ids` (pela ordem dada) para a tipologia `roomId`, antes da foto `beforeId` (ou no fim). Só renumera as tipologias afetadas. Usada no cliente (resultado imediato) e no servidor (gravação). */
+export function relocatePhotos(photos:RoomPhoto[],ids:string[],roomId:string,beforeId:string|null):RoomPhoto[]{
+ const moving=[...new Set(ids)].map(id=>photos.find(p=>p.id===id)).filter((p):p is RoomPhoto=>!!p);
+ const movingIds=new Set(moving.map(p=>p.id)),affected=new Set([roomId,...moving.map(p=>p.roomId)]);
+ const target=photos.filter(p=>p.roomId===roomId&&!movingIds.has(p.id));
+ const at=beforeId?target.findIndex(p=>p.id===beforeId):-1,index=at<0?target.length:at;
+ const placed=[...target.slice(0,index),...moving.map(p=>({...p,roomId})),...target.slice(index)];
+ const renumber=(list:RoomPhoto[])=>list.map((p,i)=>({...p,position:i}));
+ return [...new Set([...photos.map(p=>p.roomId),roomId])].flatMap(rid=>{
+  if(rid===roomId)return renumber(placed);
+  const rest=photos.filter(p=>p.roomId===rid&&!movingIds.has(p.id));
+  return affected.has(rid)?renumber(rest):rest;
+ });
+}
 export const amenitySchema = z.object({id:short,label:required,group:short,enabled:z.boolean(),rules:text,custom:z.boolean()});
 export const propertySchema = z.object({
  id,version:z.number().int().min(0),name:required,code:short,type:short,status:z.enum(["Rascunho","Ativo","Inativo"]),city:short,region:short,address:text,postal:short,license:short,email:z.string().max(180).refine(v=>!v||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),"Email inválido."),phone:short,website:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),driveUrl:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),reviewLink:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),description:text,

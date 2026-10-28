@@ -1,6 +1,6 @@
 import {database} from "@/db/raw";
 import {bucket,boundedForm,fileType} from "./corporate-server";
-import {checkPhoto} from "./property";
+import {checkPhoto,relocatePhotos} from "./property";
 import type {RoomPhoto} from "./property";
 export {boundedForm};
 type Row={id:string,room_id:string,key:string,name:string,size:number,type:string,uploaded_by:string,uploaded_at:string,position:number};
@@ -41,6 +41,55 @@ export async function deletePhoto(id:string,propertyId:string):Promise<{ok:true}
  await database().prepare("DELETE FROM property_room_photos WHERE id=?").bind(id).run();
  try{await bucket().delete(row.key)}catch(e){console.error("Remove room photo object",e)}
  return {ok:true};
+}
+export type PhotoResult<T>=({ok:true}&T)|{ok:false,status:number,error:string};
+export const MAX_BULK_PHOTOS=300;
+/** A tipologia de destino tem de existir na ficha atual do alojamento (as tipologias não têm tabela própria). */
+async function checkRoom(propertyId:string,roomId:string):Promise<{ok:true}|{ok:false,status:number,error:string}>{
+ const row=await database().prepare("SELECT payload FROM properties WHERE id=?").bind(propertyId).first<{payload:string}>();
+ if(!row)return {ok:false,status:404,error:"O alojamento já não existe. Guarda a ficha antes de mexer nas fotos."};
+ const rooms=(JSON.parse(row.payload).rooms||[]) as {id:string}[];
+ if(!rooms.some(r=>r.id===roomId))return {ok:false,status:409,error:"Esta tipologia já não existe nesta ficha. Guarda a ficha e tenta novamente."};
+ return {ok:true};
+}
+/** Elimina várias fotos de uma vez (base de dados numa só instrução; ficheiros do Storage em lotes pequenos em paralelo). */
+export async function deletePhotos(propertyId:string,ids:string[]):Promise<PhotoResult<{photos:RoomPhoto[]}>>{
+ const db=database();
+ const {results}=await db.prepare("SELECT id,key FROM property_room_photos WHERE property_id=? AND id IN (SELECT jsonb_array_elements_text(?::jsonb))").bind(propertyId,JSON.stringify(ids)).all<{id:string,key:string}>();
+ if(!results.length)return {ok:false,status:404,error:"As fotos já não existem."};
+ await db.prepare("DELETE FROM property_room_photos WHERE property_id=? AND id IN (SELECT jsonb_array_elements_text(?::jsonb))").bind(propertyId,JSON.stringify(results.map(r=>r.id))).run();
+ for(let i=0;i<results.length;i+=10)await Promise.all(results.slice(i,i+10).map(async r=>{try{await bucket().delete(r.key)}catch(e){console.error("Remove room photo object",e)}}));
+ return {ok:true,photos:await listPhotos(propertyId)};
+}
+/** Move fotos (também de várias tipologias) para a tipologia `roomId`, antes de `beforeId` ou no fim. O ficheiro no Storage não muda de sítio: a chave fica guardada na linha. */
+export async function movePhotos(propertyId:string,ids:string[],roomId:string,beforeId:string|null):Promise<PhotoResult<{photos:RoomPhoto[]}>>{
+ const room=await checkRoom(propertyId,roomId);if(!room.ok)return room;
+ const current=await listPhotos(propertyId),known=new Set(current.map(p=>p.id));
+ const moving=ids.filter(id=>known.has(id));
+ if(!moving.length)return {ok:false,status:404,error:"As fotos já não existem."};
+ if(beforeId&&(!known.has(beforeId)||moving.includes(beforeId)))return {ok:false,status:409,error:"A lista de fotos mudou. Recarrega a ficha e tenta novamente."};
+ const next=relocatePhotos(current,moving,roomId,beforeId),old=new Map(current.map(p=>[p.id,p]));
+ const changed=next.filter(p=>{const o=old.get(p.id);return !o||o.roomId!==p.roomId||o.position!==p.position});
+ if(changed.length){const db=database();await db.batch(changed.map(p=>db.prepare("UPDATE property_room_photos SET room_id=?,position=? WHERE id=? AND property_id=?").bind(p.roomId,p.position,p.id,propertyId)));}
+ return {ok:true,photos:next};
+}
+/** Copia uma foto para a tipologia `roomId` (no fim). Cria um novo ficheiro no Storage, para que eliminar uma das cópias não afete a outra. */
+export async function copyPhoto(propertyId:string,id:string,roomId:string,uploadedBy:string):Promise<UploadResult>{
+ const room=await checkRoom(propertyId,roomId);if(!room.ok)return room;
+ const db=database();
+ const src=await db.prepare("SELECT key,name,size,type FROM property_room_photos WHERE id=? AND property_id=?").bind(id,propertyId).first<{key:string,name:string,size:number,type:string}>();
+ if(!src)return {ok:false,status:404,error:"A foto já não existe."};
+ const object=await bucket().get(src.key);
+ if(!object)return {ok:false,status:503,error:"A foto original está indisponível. Tenta novamente."};
+ const newId=crypto.randomUUID(),key=`property-photos/${propertyId}/${roomId}/${newId}`;
+ try{
+  const next=await db.prepare("SELECT COALESCE(MAX(position),-1)+1 AS n FROM property_room_photos WHERE property_id=? AND room_id=?").bind(propertyId,roomId).first<{n:number}>();
+  const position=next?.n??0;
+  await bucket().put(key,object.body,{httpMetadata:{contentType:src.type}});
+  const now=new Date().toISOString();
+  await db.prepare("INSERT INTO property_room_photos (id,property_id,room_id,key,name,size,type,uploaded_by,uploaded_at,position) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(newId,propertyId,roomId,key,src.name,src.size,src.type,uploadedBy,now,position).run();
+  return {ok:true,photo:{id:newId,roomId,name:src.name,size:src.size,type:src.type,uploadedBy,uploadedAt:now,position}};
+ }catch(e){try{await bucket().delete(key)}catch{}console.error("Copy room photo",e);return {ok:false,status:503,error:"Não foi possível copiar a foto. Tenta novamente."};}
 }
 /** Remove as fotos de tipologias que já não existem na ficha (chamado ao guardar o alojamento). */
 export async function pruneOrphanPhotos(propertyId:string,keepRoomIds:string[]):Promise<void>{

@@ -1,6 +1,6 @@
 "use client";
 import {useState,useEffect,useRef} from 'react';
-import {KeyRound,DoorOpen,Network,Wrench,Hotel,Building2,Handshake,Megaphone,GraduationCap,Plus,ChevronRight,ArrowLeft,BedDouble,MapPin,Check,Save,Trash2,Wifi,FileText,ShieldCheck,Settings2,Wallet,LoaderCircle,PencilLine,Layers,ArrowUpRight,Search,Bell,Image,ImagePlus,Download} from 'lucide-react';
+import {KeyRound,DoorOpen,Network,Wrench,Hotel,Building2,Handshake,Megaphone,GraduationCap,Plus,ChevronRight,ArrowLeft,BedDouble,MapPin,Check,Save,Trash2,Wifi,FileText,ShieldCheck,Settings2,Wallet,LoaderCircle,PencilLine,Layers,ArrowUpRight,Search,Bell,Image,ImagePlus,Download,Copy,FolderInput,X,ChevronDown} from 'lucide-react';
 import {SidebarProvider,Sidebar,SidebarHeader,SidebarContent,SidebarFooter,SidebarMenu,SidebarMenuItem,SidebarMenuButton,SidebarTrigger,useSidebar} from '@/components/ui/sidebar';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -10,6 +10,7 @@ import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/compo
 import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
+import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator} from '@/components/ui/dropdown-menu';
 import {Carousel,CarouselContent,CarouselItem,CarouselPrevious,CarouselNext,type CarouselApi} from '@/components/ui/carousel';
 import {Empty,EmptyHeader,EmptyTitle,EmptyDescription,EmptyMedia} from '@/components/ui/empty';
 import {Skeleton} from '@/components/ui/skeleton';
@@ -29,7 +30,7 @@ import ChangeRequestsPanel from '@/components/change-requests-panel';
 import {AREAS,type Me} from '@/lib/access';
 import TrainingArea from '@/components/training';
 import {Field,Heading} from '@/components/hub-fields';
-import {newId,newProperty,propertySchema,policyGroups,SEASONS,policyKey,amenityGroups,propertyMatches,checkPhoto,PHOTO_ACCEPT,type Property,type SavedProperty,type Season,type RoomPhoto} from '@/lib/property';
+import {newId,newProperty,propertySchema,policyGroups,SEASONS,policyKey,amenityGroups,propertyMatches,checkPhoto,PHOTO_ACCEPT,relocatePhotos,type Property,type SavedProperty,type Season,type RoomPhoto} from '@/lib/property';
 
 const areas=[{name:'Alojamentos',icon:Hotel,desc:'Informação, inventário e condições de cada alojamento.'},{name:'Operadores',icon:Network,desc:'Operadores parceiros, condições e alojamentos com que trabalham.'},{name:'Corporates',icon:Building2,desc:'Empresas, acordos e condições comerciais.'},{name:'Parcerias / Afiliados',icon:Handshake,desc:'Parceiros, afiliados e condições de colaboração.'},{name:'Campanhas Ativas',icon:Megaphone,desc:'Campanhas, períodos e condições de participação.'},{name:'Formação',icon:GraduationCap,desc:'Conteúdos e procedimentos para a equipa.'},{name:'Ferramentas',icon:Wrench,desc:'Acesso rápido às ferramentas usadas pela equipa.'}];
 const areaKey=Object.fromEntries(AREAS.map(a=>[a.name,a.key])) as Record<string,typeof AREAS[number]['key']>;
@@ -46,7 +47,9 @@ export default function Home(){
  const [photos,setPhotos]=useState<RoomPhoto[]>([]),[photosLoading,setPhotosLoading]=useState(false),[photosError,setPhotosError]=useState('');
  const [photoBusy,setPhotoBusy]=useState<string|null>(null),[photoDeleting,setPhotoDeleting]=useState<string|null>(null);
  const photoInputRefs=useRef<Record<string,HTMLInputElement|null>>({});
- const [draggingPhoto,setDraggingPhoto]=useState<{id:string,roomId:string}|null>(null),[dragOverPhoto,setDragOverPhoto]=useState<string|null>(null);
+ const [draggingIds,setDraggingIds]=useState<string[]|null>(null),[dragOverPhoto,setDragOverPhoto]=useState<string|null>(null),[dragOverRoom,setDragOverRoom]=useState<string|null>(null);
+ const [selected,setSelected]=useState<Set<string>>(new Set()),[bulkBusy,setBulkBusy]=useState<'delete'|'move'|'copy'|null>(null);
+ useEffect(()=>{setSelected(s=>{const ids=new Set(photos.map(p=>p.id)),kept=[...s].filter(id=>ids.has(id));return kept.length===s.size?s:new Set(kept)})},[photos]);
  const [lightbox,setLightbox]=useState<{roomId:string,index:number}|null>(null),[lightboxApi,setLightboxApi]=useState<CarouselApi|null>(null),[lightboxIndex,setLightboxIndex]=useState(0);
  const [downloadingZip,setDownloadingZip]=useState(false);
  useEffect(()=>{if(!lightboxApi)return;const update=()=>setLightboxIndex(lightboxApi.selectedScrollSnap());update();lightboxApi.on('select',update);return()=>{lightboxApi.off('select',update)}},[lightboxApi]);
@@ -65,16 +68,51 @@ export default function Home(){
    catch(e){toast.error(e instanceof Error?e.message:'Não foi possível guardar a foto.')}}
   }finally{setPhotoBusy(null)}}
  function confirmDeletePhoto(photo:RoomPhoto){setConfirm({title:'Eliminar foto?',desc:'Esta foto será eliminada de forma permanente.',label:'Eliminar',action:async()=>{if(!draft)return;setPhotoDeleting(photo.id);try{const r=await fetch(`/api/properties/photos/${photo.id}?propertyId=${draft.id}`,{method:'DELETE'});const data:{error?:string}=await r.json();if(!r.ok)throw Error(data.error);setPhotos(p=>p.filter(x=>x.id!==photo.id));toast.success('Foto eliminada.')}catch(e){toast.error(e instanceof Error?e.message:'Não foi possível eliminar.')}finally{setPhotoDeleting(null)}}})}
- /** Arrastar uma foto por cima de outra reordena-as localmente de imediato; a gravação só acontece ao largar. */
  /** A ordem só muda uma vez, ao largar (não durante o arrastar) — mexer no DOM a meio de um drag nativo interrompe-o. */
- function dropPhoto(roomId:string,targetId:string){const dragging=draggingPhoto;setDraggingPhoto(null);setDragOverPhoto(null);
-  if(!draft||!dragging||dragging.roomId!==roomId||dragging.id===targetId)return;
-  const room=photos.filter(p=>p.roomId===roomId),rest=photos.filter(p=>p.roomId!==roomId);
-  const from=room.findIndex(p=>p.id===dragging.id),to=room.findIndex(p=>p.id===targetId);
-  if(from===-1||to===-1)return;
-  const next=[...room];const [moved]=next.splice(from,1);next.splice(to,0,moved);
-  setPhotos([...rest,...next]);
-  persistPhotoOrder(roomId,next.map(p=>p.id));}
+ function startDrag(e:React.DragEvent,ph:RoomPhoto){const ids=selected.has(ph.id)&&selected.size>1?orderedSelection():[ph.id];setDraggingIds(ids);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('application/x-umbral-photos',ids.join(','));
+  if(ids.length>1){const badge=document.createElement('div');badge.textContent=`${ids.length} fotos`;badge.style.cssText='position:fixed;top:-100px;left:-100px;padding:8px 14px;border-radius:8px;background:#2a3175;color:#fff;font:600 13px sans-serif';document.body.appendChild(badge);e.dataTransfer.setDragImage(badge,20,20);setTimeout(()=>badge.remove(),0)}}
+ /** Largar uma ou várias fotos: por cima de outra foto (insere antes dela) ou no fundo da tipologia (insere no fim). Dentro da mesma tipologia, uma só foto troca com a de destino, como sempre. */
+ function dropPhotos(roomId:string,beforeId:string|null){const ids=draggingIds;setDraggingIds(null);setDragOverPhoto(null);setDragOverRoom(null);
+  if(!draft||!ids||!ids.length||(beforeId&&ids.includes(beforeId)))return;
+  const moving=ids.map(id=>photos.find(p=>p.id===id)).filter((p):p is RoomPhoto=>!!p);
+  if(!moving.length)return;
+  if(ids.length===1&&beforeId&&moving[0].roomId===roomId){
+   const room=photos.filter(p=>p.roomId===roomId),rest=photos.filter(p=>p.roomId!==roomId);
+   const from=room.findIndex(p=>p.id===ids[0]),to=room.findIndex(p=>p.id===beforeId);
+   if(from===-1||to===-1)return;
+   const next=[...room];const [moved]=next.splice(from,1);next.splice(to,0,moved);
+   setPhotos([...rest,...next]);
+   persistPhotoOrder(roomId,next.map(p=>p.id));return}
+  relocate(ids,roomId,beforeId,moving.some(p=>p.roomId!==roomId)?movedMessage(ids.length,roomId):undefined)}
+ const roomLabel=(roomId:string)=>draft?.rooms.find(r=>r.id===roomId)?.name||'Tipologia sem nome';
+ const movedMessage=(n:number,roomId:string)=>n===1?`Foto movida para ${roomLabel(roomId)}.`:`${n} fotos movidas para ${roomLabel(roomId)}.`;
+ const orderedSelection=()=>draft?draft.rooms.flatMap(r=>photos.filter(p=>p.roomId===r.id&&selected.has(p.id))).map(p=>p.id):[];
+ function togglePhoto(id:string){setSelected(s=>{const n=new Set(s);if(n.has(id))n.delete(id);else n.add(id);return n})}
+ function toggleRoomSelection(roomId:string){const ids=photos.filter(p=>p.roomId===roomId).map(p=>p.id);setSelected(s=>{const all=ids.every(id=>s.has(id)),n=new Set(s);ids.forEach(id=>all?n.delete(id):n.add(id));return n})}
+ async function bulkRequest(body:object){const r=await fetch('/api/properties/photos/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({propertyId:draft?.id,...body})});const data:{photos?:RoomPhoto[],error?:string}=await r.json();if(!r.ok||!data.photos)throw Error(data.error);return data.photos}
+ /** Mostra o resultado já, grava no servidor e, se falhar, volta ao estado anterior. Devolve se correu bem. */
+ async function relocate(ids:string[],roomId:string,beforeId:string|null,success?:string){if(!draft||!ids.length||bulkBusy)return false;
+  const previous=photos;setPhotos(relocatePhotos(photos,ids,roomId,beforeId));setBulkBusy('move');
+  try{setPhotos(await bulkRequest({action:'move',ids,roomId,beforeId}));if(success)toast.success(success);return true}
+  catch(e){setPhotos(previous);toast.error(e instanceof Error?e.message:'Não foi possível mover as fotos.');return false}
+  finally{setBulkBusy(null)}}
+ async function moveSelected(roomId:string){const ids=orderedSelection();if(!ids.length)return;if(await relocate(ids,roomId,null,movedMessage(ids.length,roomId)))setSelected(new Set())}
+ /** target = tipologia de destino; null duplica cada foto na tipologia onde já está. Uma foto por pedido, para cada um ser curto. */
+ async function copySelected(target:string|null){if(!draft||bulkBusy)return;const ids=orderedSelection();if(!ids.length)return;
+  const dest=(id:string)=>target??photos.find(p=>p.id===id)?.roomId??'';
+  setBulkBusy('copy');const t=toast.loading(`A copiar 0/${ids.length}…`);let done=0;
+  try{for(const id of ids){
+    const r=await fetch('/api/properties/photos/copy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({propertyId:draft.id,id,roomId:dest(id)})});
+    const data:{photo?:RoomPhoto,error?:string}=await r.json();if(!r.ok||!data.photo)throw Error(data.error);
+    const photo=data.photo;setPhotos(p=>[...p,photo]);done++;toast.loading(`A copiar ${done}/${ids.length}…`,{id:t})}
+   toast.success(target?(ids.length===1?`Foto copiada para ${roomLabel(target)}.`:`${ids.length} fotos copiadas para ${roomLabel(target)}.`):(ids.length===1?'Foto duplicada.':`${ids.length} fotos duplicadas.`),{id:t})}
+  catch(e){toast.error(`${done?`${done} de ${ids.length} copiadas. `:''}${e instanceof Error?e.message:'Não foi possível copiar as fotos.'}`,{id:t})}
+  finally{setBulkBusy(null)}}
+ function confirmBulkDelete(){const ids=orderedSelection();if(!draft||!ids.length||bulkBusy)return;
+  setConfirm({title:ids.length===1?'Eliminar 1 foto?':`Eliminar ${ids.length} fotos?`,desc:'As fotos selecionadas serão eliminadas de forma permanente.',label:'Eliminar',action:async()=>{setBulkBusy('delete');
+   try{setPhotos(await bulkRequest({action:'delete',ids}));setSelected(new Set());toast.success(ids.length===1?'Foto eliminada.':`${ids.length} fotos eliminadas.`)}
+   catch(e){toast.error(e instanceof Error?e.message:'Não foi possível eliminar as fotos.')}
+   finally{setBulkBusy(null)}}})}
  async function persistPhotoOrder(roomId:string,order:string[]){if(!draft)return;
   try{const r=await fetch('/api/properties/photos',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({propertyId:draft.id,roomId,order})});const data:{error?:string}=await r.json();if(!r.ok)throw Error(data.error)}
   catch(e){toast.error(e instanceof Error?e.message:'Não foi possível guardar a nova ordem.');loadPhotos(draft.id)}}
@@ -94,12 +132,11 @@ export default function Home(){
  const dirty=!!draft&&JSON.stringify(draft)!==baseline;
  const currentRef=useRef({properties,draft});currentRef.current={properties,draft};
  async function load(){setLoading(true);setLoadError('');try{const r=await fetch('/api/properties',{cache:'no-store'});const data:any=await r.json();if(!r.ok)throw Error(data.error);setProperties(data.properties)}catch(e){setLoadError(e instanceof Error?e.message:'Não foi possível carregar os alojamentos.')}finally{setLoading(false)}}
- useEffect(()=>{load()},[]);
- useEffect(()=>{if(!dirty)return;const f=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',f);return()=>window.removeEventListener('beforeunload',f)},[dirty]);
+ useEffect(()=>{load()},[]); useEffect(()=>{if(!dirty)return;const f=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',f);return()=>window.removeEventListener('beforeunload',f)},[dirty]);
  function guard(action:()=>void){if(busy||corporateState.busy||trainingState.busy||partnershipState.busy||campaignState.busy||operatorState.busy)return;if(dirty||corporateState.dirty||trainingState.dirty||partnershipState.dirty||campaignState.dirty||operatorState.dirty)setConfirm({title:'Sair sem guardar?',desc:'As alterações desta ficha ainda não foram guardadas.',label:'Sair sem guardar',action});else action()}
  async function open(p?:SavedProperty){const d=p?JSON.parse(JSON.stringify(p)):newProperty();delete d.updatedAt;
   if(!p){try{const r=await fetch('/api/amenity-catalog',{cache:'no-store'});const data:{amenities?:{id:string,label:string,group:string}[]}=await r.json();if(r.ok&&data.amenities?.length){const have=new Set(d.amenities.map((a:{id:string})=>a.id));d.amenities=[...d.amenities,...data.amenities.filter(c=>!have.has(c.id)).map(c=>({id:c.id,label:c.label,group:c.group,enabled:false,rules:'',custom:true}))]}}catch{}}
-  setDraft(d);setBaseline(JSON.stringify(d));setTab('general');setError('');setIssues([]);setCustom('');setCustomGroup('Personalizadas');setRenaming(null);setSeason('alta');setPhotos([]);setPhotosError('');loadPartnerOps();if(p)loadPhotos(d.id)}
+  setDraft(d);setBaseline(JSON.stringify(d));setTab('general');setError('');setIssues([]);setCustom('');setCustomGroup('Personalizadas');setRenaming(null);setSeason('alta');setPhotos([]);setPhotosError('');setSelected(new Set());setDraggingIds(null);loadPartnerOps();if(p)loadPhotos(d.id)}
  function patch(p:Partial<Property>){if(issues.length){setIssues([]);setError('')}setDraft(d=>d?{...d,...p}:d)}
  function rowPatch(key:'rooms'|'rates'|'operators',index:number,p:object){if(!draft)return;patch({[key]:draft[key].map((r,i)=>i===index?{...r,...p}:r)})}
  function removeRow(key:'rooms'|'rates'|'operators',index:number){if(!draft)return;const row=draft[key][index];setConfirm({title:'Remover este registo?',desc:'A remoção será aplicada quando guardares a ficha.'+(key==='rates'?' A tarifa será também desassociada dos operadores.':''),label:'Remover',action:()=>{setDraft(d=>d?{...d,[key]:d[key].filter((_,i)=>i!==index),...(key==='rates'?{operators:d.operators.map(o=>({...o,rateIds:o.rateIds.filter(id=>id!==row.id)}))}:{})}:d)}})}
@@ -158,14 +195,30 @@ export default function Home(){
  :!draft.version?<SmallEmpty icon={Image} title="Guarda primeiro o alojamento" text="Depois de guardares a ficha podes começar a adicionar fotos a cada tipologia."/>
  :photosLoading?<div className="loading-list"><Skeleton className="h-24"/><Skeleton className="h-24"/></div>
  :photosError?<div className="error-banner" role="alert">{photosError}<Button variant="outline" onClick={()=>loadPhotos(draft.id)}>Tentar novamente</Button></div>
- :draft.rooms.map(room=>{const roomPhotos=photos.filter(ph=>ph.roomId===room.id),roomBusy=photoBusy===room.id;return <div className="room-photos" key={room.id}>
-  <div className="room-photos-head"><h3>{room.name||'Tipologia sem nome'}</h3><Button variant="outline" size="sm" disabled={roomBusy} onClick={()=>photoInputRefs.current[room.id]?.click()}>{roomBusy?<LoaderCircle className="spin"/>:<ImagePlus/>} Adicionar fotos</Button>
+ :<>{selected.size>0&&<div className="photo-bulkbar" role="toolbar" aria-label="Ações sobre as fotos selecionadas">
+  <span className="photo-bulkbar-count"><Check size={15}/>{selected.size} {selected.size===1?'foto selecionada':'fotos selecionadas'}</span>
+  <Button variant="ghost" size="sm" onClick={()=>setSelected(new Set())}><X/> Limpar seleção</Button>
+  <div className="photo-bulkbar-actions">
+   <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={!!bulkBusy}>{bulkBusy==='copy'?<LoaderCircle className="spin"/>:<Copy/>} Copiar para <ChevronDown/></Button></DropdownMenuTrigger>
+    <DropdownMenuContent align="end"><DropdownMenuLabel>Copiar as fotos selecionadas para…</DropdownMenuLabel>
+     <DropdownMenuItem onSelect={()=>copySelected(null)}>Duplicar na mesma tipologia</DropdownMenuItem><DropdownMenuSeparator/>
+     {draft.rooms.map(r=><DropdownMenuItem key={r.id} onSelect={()=>copySelected(r.id)}>{r.name||'Tipologia sem nome'}</DropdownMenuItem>)}
+    </DropdownMenuContent></DropdownMenu>
+   <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={!!bulkBusy}>{bulkBusy==='move'?<LoaderCircle className="spin"/>:<FolderInput/>} Mover para <ChevronDown/></Button></DropdownMenuTrigger>
+    <DropdownMenuContent align="end"><DropdownMenuLabel>Mover as fotos selecionadas para…</DropdownMenuLabel>
+     {draft.rooms.map(r=><DropdownMenuItem key={r.id} disabled={photos.filter(p=>selected.has(p.id)).every(p=>p.roomId===r.id)} onSelect={()=>moveSelected(r.id)}>{r.name||'Tipologia sem nome'}</DropdownMenuItem>)}
+    </DropdownMenuContent></DropdownMenu>
+   <Button variant="outline" size="sm" className="photo-bulkbar-delete" disabled={!!bulkBusy} onClick={confirmBulkDelete}>{bulkBusy==='delete'?<LoaderCircle className="spin"/>:<Trash2/>} Eliminar</Button>
+  </div></div>}
+ {draft.rooms.map(room=>{const roomPhotos=photos.filter(ph=>ph.roomId===room.id),roomBusy=photoBusy===room.id,allSelected=roomPhotos.length>0&&roomPhotos.every(ph=>selected.has(ph.id));return <div className={'room-photos'+(dragOverRoom===room.id?' drop-target':'')} key={room.id} onDragOver={e=>{e.preventDefault();if(draggingIds){setDragOverRoom(room.id);setDragOverPhoto(null)}}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node|null))setDragOverRoom(id=>id===room.id?null:id)}} onDrop={e=>{e.preventDefault();if(draggingIds)dropPhotos(room.id,null)}}>
+  <div className="room-photos-head"><h3>{room.name||'Tipologia sem nome'}<span className="room-photos-count">{roomPhotos.length}</span></h3><div className="room-photos-actions">{roomPhotos.length>0&&<Button variant="ghost" size="sm" onClick={()=>toggleRoomSelection(room.id)}>{allSelected?'Limpar seleção':'Selecionar todas'}</Button>}<Button variant="outline" size="sm" disabled={roomBusy} onClick={()=>photoInputRefs.current[room.id]?.click()}>{roomBusy?<LoaderCircle className="spin"/>:<ImagePlus/>} Adicionar fotos</Button></div>
   <input ref={el=>{photoInputRefs.current[room.id]=el}} type="file" accept={PHOTO_ACCEPT} multiple className="sr-only" onChange={e=>{uploadRoomPhotos(room.id,e.target.files);e.target.value=''}}/></div>
-  {roomPhotos.length?<div className="room-photo-grid">{roomPhotos.map((ph,i)=><div className={'room-photo '+(draggingPhoto?.id===ph.id?'dragging ':'')+(dragOverPhoto===ph.id&&draggingPhoto?.id!==ph.id?'drag-over':'')} key={ph.id} draggable onDragStart={()=>setDraggingPhoto({id:ph.id,roomId:room.id})} onDragOver={e=>{e.preventDefault();if(draggingPhoto?.roomId===room.id)setDragOverPhoto(ph.id)}} onDragLeave={()=>setDragOverPhoto(id=>id===ph.id?null:id)} onDrop={e=>{e.preventDefault();dropPhoto(room.id,ph.id)}} onDragEnd={()=>{setDraggingPhoto(null);setDragOverPhoto(null)}}>
-  <button type="button" className="room-photo-view" aria-label={`Ver ${ph.name} em ecrã inteiro`} onClick={()=>setLightbox({roomId:room.id,index:i})}><img src={`/api/properties/photos/file?id=${ph.id}`} alt={ph.name} loading="lazy"/></button>
-  <Button variant="ghost" size="icon" className="room-photo-remove" aria-label={`Eliminar ${ph.name}`} disabled={photoDeleting===ph.id} onClick={()=>confirmDeletePhoto(ph)}>{photoDeleting===ph.id?<LoaderCircle className="spin"/>:<Trash2 size={14}/>}</Button></div>)}</div>
-  :<p className="field-help">Ainda não há fotos para esta tipologia.</p>}
- </div>})}
+  {roomPhotos.length?<div className={'room-photo-grid'+(selected.size?' selecting':'')}>{roomPhotos.map((ph,i)=>{const isSelected=selected.has(ph.id),isDragging=!!draggingIds?.includes(ph.id);return <div className={'room-photo '+(isSelected?'selected ':'')+(isDragging?'dragging ':'')+(dragOverPhoto===ph.id&&!isDragging?'drag-over':'')} key={ph.id} draggable onDragStart={e=>startDrag(e,ph)} onDragOver={e=>{e.preventDefault();if(draggingIds){e.stopPropagation();setDragOverPhoto(ph.id);setDragOverRoom(null)}}} onDragLeave={()=>setDragOverPhoto(id=>id===ph.id?null:id)} onDrop={e=>{e.preventDefault();if(draggingIds){e.stopPropagation();dropPhotos(room.id,ph.id)}}} onDragEnd={()=>{setDraggingIds(null);setDragOverPhoto(null);setDragOverRoom(null)}}>
+  <button type="button" className="room-photo-view" aria-label={selected.size?`${isSelected?'Desselecionar':'Selecionar'} ${ph.name}`:`Ver ${ph.name} em ecrã inteiro`} onClick={e=>{if(selected.size||e.ctrlKey||e.metaKey||e.shiftKey)togglePhoto(ph.id);else setLightbox({roomId:room.id,index:i})}}><img src={`/api/properties/photos/file?id=${ph.id}`} alt={ph.name} loading="lazy"/></button>
+  <button type="button" className="room-photo-check" aria-pressed={isSelected} aria-label={`${isSelected?'Desselecionar':'Selecionar'} ${ph.name}`} onClick={()=>togglePhoto(ph.id)}>{isSelected&&<Check size={13} strokeWidth={3}/>}</button>
+  <Button variant="ghost" size="icon" className="room-photo-remove" aria-label={`Eliminar ${ph.name}`} disabled={photoDeleting===ph.id} onClick={()=>confirmDeletePhoto(ph)}>{photoDeleting===ph.id?<LoaderCircle className="spin"/>:<Trash2 size={14}/>}</Button></div>})}</div>
+  :<p className="field-help">Ainda não há fotos para esta tipologia{draggingIds?' — larga aqui para mover.':'.'}</p>}
+ </div>})}</>}
  </section></TabsContent>
  </fieldset></Tabs><div className="save-bar"><span>{dirty?<><PencilLine size={15}/> Alterações por guardar</>:draft.version?<><Check size={16}/> Ficha guardada</>:<>Nova ficha · ainda não guardada</>}</span><Button disabled={busy} onClick={save}>{busy?<LoaderCircle className="spin"/>:<Save/>} Guardar ficha</Button></div></div>
  <aside className="editor-aside"><section className="panel summary-panel"><div className="summary-monogram">{draft.name?draft.name.slice(0,2).toUpperCase():'U'}</div><h3>{draft.name||'Novo alojamento'}</h3><p>{draft.city||'Localidade por preencher'}</p><div className="summary-stats"><div><strong>{draft.rooms.length}</strong><span>Tipologias</span></div><div><strong>{countRooms(draft)}</strong><span>Quartos</span></div></div><h4>NESTA FICHA</h4>{sections.map((s,i)=><button key={s.id} onClick={()=>setTab(s.id)} className={'summary-section '+(tab===s.id?'current':'')}><s.icon size={15}/><span>{s.label}</span>{statusFilled[i]?<Check size={15} className="section-check"/>:<span className="unfilled"/>}</button>)}<p className="summary-hint">O visto indica que a secção contém informação.</p></section><div className="save-reminder"><ShieldCheck size={18}/><p>Guarda a ficha para manter a informação disponível nas próximas consultas.</p></div>{draft.version>0&&<Button className="delete-property" variant="ghost" disabled={busy} onClick={()=>setConfirm({title:'Eliminar alojamento?',desc:`A ficha de ${draft.name}, incluindo tipologias, tarifas e operadores, será eliminada. Esta ação não pode ser desfeita.`,label:'Eliminar alojamento',action:destroy})}><Trash2/> Eliminar alojamento</Button>}</aside></div></>}
