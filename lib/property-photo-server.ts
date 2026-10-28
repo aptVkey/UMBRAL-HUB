@@ -6,7 +6,7 @@ export {boundedForm};
 type Row={id:string,room_id:string,key:string,name:string,size:number,type:string,uploaded_by:string,uploaded_at:string,position:number};
 const present=(r:Row):RoomPhoto=>({id:r.id,roomId:r.room_id,name:r.name,size:r.size,type:r.type,uploadedBy:r.uploaded_by,uploadedAt:r.uploaded_at,position:r.position});
 export async function listPhotos(propertyId:string):Promise<RoomPhoto[]>{
- const {results}=await database().prepare("SELECT id,room_id,key,name,size,type,uploaded_by,uploaded_at,position FROM property_room_photos WHERE property_id=? ORDER BY room_id,position").bind(propertyId).all<Row>();
+ const {results}=await database().prepare("SELECT id,room_id,key,name,size,type,uploaded_by,uploaded_at,position FROM property_room_photos WHERE property_id=? ORDER BY room_id,position,uploaded_at,id").bind(propertyId).all<Row>();
  return results.map(present);
 }
 export type UploadResult={ok:true,photo:RoomPhoto}|{ok:false,status:number,error:string};
@@ -17,14 +17,19 @@ export async function uploadPhoto(propertyId:string,roomId:string,file:File,uplo
  const id=crypto.randomUUID(),key=`property-photos/${propertyId}/${roomId}/${id}`;
  const name=file.name.replace(/[\/\\\x00-\x1F\x7F]/g,'_').slice(0,200)||'foto';
  try{
-  const db=database();
-  const next=await db.prepare("SELECT COALESCE(MAX(position),-1)+1 AS n FROM property_room_photos WHERE property_id=? AND room_id=?").bind(propertyId,roomId).first<{n:number}>();
-  const position=next?.n??0;
   await bucket().put(key,file.stream(),{httpMetadata:{contentType:mime}});
   const now=new Date().toISOString();
-  await db.prepare("INSERT INTO property_room_photos (id,property_id,room_id,key,name,size,type,uploaded_by,uploaded_at,position) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(id,propertyId,roomId,key,name,file.size,mime,uploadedBy,now,position).run();
-  return {ok:true,photo:{id,roomId,name,size:file.size,type:mime,uploadedBy,uploadedAt:now,position}};
+  const row=await insertPhoto({id,propertyId,roomId,key,name,size:file.size,type:mime,uploadedBy,uploadedAt:now});
+  return {ok:true,photo:{id,roomId,name,size:file.size,type:mime,uploadedBy,uploadedAt:now,position:row.position}};
  }catch(e){try{await bucket().delete(key)}catch{}console.error("Upload room photo",e);return {ok:false,status:503,error:"Não foi possível guardar a foto. Tenta novamente."};}
+}
+/** Insere a foto no fim da tipologia. A posição é calculada na própria instrução, para que uploads em paralelo não usem todos a mesma. */
+async function insertPhoto(p:{id:string,propertyId:string,roomId:string,key:string,name:string,size:number,type:string,uploadedBy:string,uploadedAt:string}):Promise<{position:number}>{
+ const db=database();
+ const [,read]=await db.batch([
+  db.prepare("INSERT INTO property_room_photos (id,property_id,room_id,key,name,size,type,uploaded_by,uploaded_at,position) SELECT ?,?,?,?,?,?,?,?,?,COALESCE(MAX(position),-1)+1 FROM property_room_photos WHERE property_id=? AND room_id=?").bind(p.id,p.propertyId,p.roomId,p.key,p.name,p.size,p.type,p.uploadedBy,p.uploadedAt,p.propertyId,p.roomId),
+  db.prepare("SELECT position FROM property_room_photos WHERE id=?").bind(p.id)]);
+ return {position:Number((read.results[0] as {position:number}|undefined)?.position??0)};
 }
 /** Grava a nova ordem das fotos de uma tipologia (arrastar para reorganizar). */
 export async function reorderPhotos(propertyId:string,roomId:string,orderedIds:string[]):Promise<{ok:true}|{ok:false,status:number,error:string}>{
@@ -45,7 +50,7 @@ export async function deletePhoto(id:string,propertyId:string):Promise<{ok:true}
 export type PhotoResult<T>=({ok:true}&T)|{ok:false,status:number,error:string};
 export const MAX_BULK_PHOTOS=300;
 /** A tipologia de destino tem de existir na ficha atual do alojamento (as tipologias não têm tabela própria). */
-async function checkRoom(propertyId:string,roomId:string):Promise<{ok:true}|{ok:false,status:number,error:string}>{
+export async function checkRoom(propertyId:string,roomId:string):Promise<{ok:true}|{ok:false,status:number,error:string}>{
  const row=await database().prepare("SELECT payload FROM properties WHERE id=?").bind(propertyId).first<{payload:string}>();
  if(!row)return {ok:false,status:404,error:"O alojamento já não existe. Guarda a ficha antes de mexer nas fotos."};
  const rooms=(JSON.parse(row.payload).rooms||[]) as {id:string}[];
@@ -83,11 +88,9 @@ export async function copyPhoto(propertyId:string,id:string,roomId:string,upload
  if(!object)return {ok:false,status:503,error:"A foto original está indisponível. Tenta novamente."};
  const newId=crypto.randomUUID(),key=`property-photos/${propertyId}/${roomId}/${newId}`;
  try{
-  const next=await db.prepare("SELECT COALESCE(MAX(position),-1)+1 AS n FROM property_room_photos WHERE property_id=? AND room_id=?").bind(propertyId,roomId).first<{n:number}>();
-  const position=next?.n??0;
   await bucket().put(key,object.body,{httpMetadata:{contentType:src.type}});
   const now=new Date().toISOString();
-  await db.prepare("INSERT INTO property_room_photos (id,property_id,room_id,key,name,size,type,uploaded_by,uploaded_at,position) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(newId,propertyId,roomId,key,src.name,src.size,src.type,uploadedBy,now,position).run();
+  const {position}=await insertPhoto({id:newId,propertyId,roomId,key,name:src.name,size:src.size,type:src.type,uploadedBy,uploadedAt:now});
   return {ok:true,photo:{id:newId,roomId,name:src.name,size:src.size,type:src.type,uploadedBy,uploadedAt:now,position}};
  }catch(e){try{await bucket().delete(key)}catch{}console.error("Copy room photo",e);return {ok:false,status:503,error:"Não foi possível copiar a foto. Tenta novamente."};}
 }

@@ -1,5 +1,5 @@
 "use client";
-import {useState,useEffect,useRef} from 'react';
+import {useState,useEffect,useRef,useMemo} from 'react';
 import {KeyRound,DoorOpen,Network,Wrench,Hotel,Building2,Handshake,Megaphone,GraduationCap,Plus,ChevronRight,ArrowLeft,BedDouble,MapPin,Check,Save,Trash2,Wifi,FileText,ShieldCheck,Settings2,Wallet,LoaderCircle,PencilLine,Layers,ArrowUpRight,Search,Bell,Image,ImagePlus,Download,Copy,FolderInput,X,ChevronDown} from 'lucide-react';
 import {SidebarProvider,Sidebar,SidebarHeader,SidebarContent,SidebarFooter,SidebarMenu,SidebarMenuItem,SidebarMenuButton,SidebarTrigger,useSidebar} from '@/components/ui/sidebar';
 import {Button} from '@/components/ui/button';
@@ -30,6 +30,7 @@ import ChangeRequestsPanel from '@/components/change-requests-panel';
 import {AREAS,type Me} from '@/lib/access';
 import TrainingArea from '@/components/training';
 import {Field,Heading} from '@/components/hub-fields';
+import {optimizePhoto} from '@/lib/image-optimize';
 import {newId,newProperty,propertySchema,policyGroups,SEASONS,policyKey,amenityGroups,propertyMatches,checkPhoto,PHOTO_ACCEPT,relocatePhotos,type Property,type SavedProperty,type Season,type RoomPhoto} from '@/lib/property';
 
 const areas=[{name:'Alojamentos',icon:Hotel,desc:'Informação, inventário e condições de cada alojamento.'},{name:'Operadores',icon:Network,desc:'Operadores parceiros, condições e alojamentos com que trabalham.'},{name:'Corporates',icon:Building2,desc:'Empresas, acordos e condições comerciais.'},{name:'Parcerias / Afiliados',icon:Handshake,desc:'Parceiros, afiliados e condições de colaboração.'},{name:'Campanhas Ativas',icon:Megaphone,desc:'Campanhas, períodos e condições de participação.'},{name:'Formação',icon:GraduationCap,desc:'Conteúdos e procedimentos para a equipa.'},{name:'Ferramentas',icon:Wrench,desc:'Acesso rápido às ferramentas usadas pela equipa.'}];
@@ -45,7 +46,7 @@ export default function Home(){
  const [renaming,setRenaming]=useState<{id:string,label:string,group:string}|null>(null),[amenityBusy,setAmenityBusy]=useState(false);
  const [season,setSeason]=useState<Season>('alta');
  const [photos,setPhotos]=useState<RoomPhoto[]>([]),[photosLoading,setPhotosLoading]=useState(false),[photosError,setPhotosError]=useState('');
- const [photoBusy,setPhotoBusy]=useState<string|null>(null),[photoDeleting,setPhotoDeleting]=useState<string|null>(null);
+ const [photoBusy,setPhotoBusy]=useState<string|null>(null),[photoDeleting,setPhotoDeleting]=useState<string|null>(null),[photoProgress,setPhotoProgress]=useState<{done:number,total:number}|null>(null);
  const photoInputRefs=useRef<Record<string,HTMLInputElement|null>>({});
  const [draggingIds,setDraggingIds]=useState<string[]|null>(null),[dragOverPhoto,setDragOverPhoto]=useState<string|null>(null),[dragOverRoom,setDragOverRoom]=useState<string|null>(null);
  const [selected,setSelected]=useState<Set<string>>(new Set()),[bulkBusy,setBulkBusy]=useState<'delete'|'move'|'copy'|null>(null);
@@ -61,12 +62,16 @@ export default function Home(){
  const [partnerOps,setPartnerOps]=useState<SlimOperator[]>([]),[partnerOpsError,setPartnerOpsError]=useState('');
  async function loadPartnerOps(){setPartnerOpsError('');try{const r=await fetch('/api/operators',{cache:'no-store'});const data:{operators?:SlimOperator[],error?:string}=await r.json();if(!r.ok||!data.operators)throw Error(data.error);setPartnerOps(data.operators)}catch(e){setPartnerOpsError(e instanceof Error?e.message:'Não foi possível carregar os operadores.')}}
  async function loadPhotos(propertyId:string){setPhotosLoading(true);setPhotosError('');try{const r=await fetch(`/api/properties/photos?propertyId=${propertyId}`,{cache:'no-store'});const data:{photos?:RoomPhoto[],error?:string}=await r.json();if(!r.ok||!data.photos)throw Error(data.error);setPhotos(data.photos)}catch(e){setPhotosError(e instanceof Error?e.message:'Não foi possível carregar as fotos.')}finally{setPhotosLoading(false)}}
- async function uploadRoomPhotos(roomId:string,files:FileList|null){if(!files||!files.length||!draft)return;setPhotoBusy(roomId);try{
-  for(const file of Array.from(files)){const invalid=checkPhoto(file);if(invalid){toast.error(invalid);continue}
-   const body=new FormData();body.append('propertyId',draft.id);body.append('roomId',roomId);body.append('file',file);
-   try{const r=await fetch('/api/properties/photos',{method:'POST',body});const data:{photo?:RoomPhoto,error?:string}=await r.json();if(!r.ok||!data.photo)throw Error(data.error);setPhotos(p=>[...p,data.photo as RoomPhoto])}
-   catch(e){toast.error(e instanceof Error?e.message:'Não foi possível guardar a foto.')}}
-  }finally{setPhotoBusy(null)}}
+ /** Cada foto é reduzida no browser e enviada em paralelo (3 de cada vez): o envio de originais um a um era o passo mais lento. */
+ async function uploadRoomPhotos(roomId:string,files:FileList|null){if(!files||!files.length||!draft)return;const list=Array.from(files),propertyId=draft.id;setPhotoBusy(roomId);setPhotoProgress({done:0,total:list.length});let next=0,done=0;try{
+  const worker=async()=>{while(next<list.length){const original=list[next++];
+   try{const file=await optimizePhoto(original),invalid=checkPhoto(file);if(invalid)throw Error(invalid);
+    const body=new FormData();body.append('propertyId',propertyId);body.append('roomId',roomId);body.append('file',file);
+    const r=await fetch('/api/properties/photos',{method:'POST',body});const data:{photo?:RoomPhoto,error?:string}=await r.json();if(!r.ok||!data.photo)throw Error(data.error);setPhotos(p=>[...p,data.photo as RoomPhoto])}
+   catch(e){toast.error(e instanceof Error?`${original.name}: ${e.message}`:'Não foi possível guardar a foto.')}
+   setPhotoProgress({done:++done,total:list.length})}};
+  await Promise.all(Array.from({length:Math.min(3,list.length)},worker));
+  }finally{setPhotoBusy(null);setPhotoProgress(null)}}
  function confirmDeletePhoto(photo:RoomPhoto){setConfirm({title:'Eliminar foto?',desc:'Esta foto será eliminada de forma permanente.',label:'Eliminar',action:async()=>{if(!draft)return;setPhotoDeleting(photo.id);try{const r=await fetch(`/api/properties/photos/${photo.id}?propertyId=${draft.id}`,{method:'DELETE'});const data:{error?:string}=await r.json();if(!r.ok)throw Error(data.error);setPhotos(p=>p.filter(x=>x.id!==photo.id));toast.success('Foto eliminada.')}catch(e){toast.error(e instanceof Error?e.message:'Não foi possível eliminar.')}finally{setPhotoDeleting(null)}}})}
  /** A ordem só muda uma vez, ao largar (não durante o arrastar) — mexer no DOM a meio de um drag nativo interrompe-o. */
  function startDrag(e:React.DragEvent,ph:RoomPhoto){const ids=selected.has(ph.id)&&selected.size>1?orderedSelection():[ph.id];setDraggingIds(ids);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('application/x-umbral-photos',ids.join(','));
@@ -129,7 +134,7 @@ export default function Home(){
  async function loadReviewCount(){try{const r=await fetch('/api/change-requests',{cache:'no-store'});const data:{reviewCount?:number}=await r.json();if(r.ok)setReviewCount(data.reviewCount||0)}catch{}}
  useEffect(()=>{if(!me)return;loadReviewCount();const t=setInterval(()=>{if(document.visibilityState==='visible')loadReviewCount()},30000);return()=>clearInterval(t)},[me]);
  useEffect(()=>{if(!me||me.noAccess)return;const allowed=areas.filter(a=>me.areas[areaKey[a.name]]!=='none');if(allowed.length&&!allowed.some(a=>a.name===area))setArea(allowed[0].name)},[me,area]);
- const dirty=!!draft&&JSON.stringify(draft)!==baseline;
+ const dirty=useMemo(()=>!!draft&&JSON.stringify(draft)!==baseline,[draft,baseline]);
  const currentRef=useRef({properties,draft});currentRef.current={properties,draft};
  async function load(){setLoading(true);setLoadError('');try{const r=await fetch('/api/properties',{cache:'no-store'});const data:any=await r.json();if(!r.ok)throw Error(data.error);setProperties(data.properties)}catch(e){setLoadError(e instanceof Error?e.message:'Não foi possível carregar os alojamentos.')}finally{setLoading(false)}}
  useEffect(()=>{load()},[]); useEffect(()=>{if(!dirty)return;const f=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',f);return()=>window.removeEventListener('beforeunload',f)},[dirty]);
@@ -211,10 +216,10 @@ export default function Home(){
    <Button variant="outline" size="sm" className="photo-bulkbar-delete" disabled={!!bulkBusy} onClick={confirmBulkDelete}>{bulkBusy==='delete'?<LoaderCircle className="spin"/>:<Trash2/>} Eliminar</Button>
   </div></>}</div>}
  {draft.rooms.map(room=>{const roomPhotos=photos.filter(ph=>ph.roomId===room.id),roomBusy=photoBusy===room.id,allSelected=roomPhotos.length>0&&roomPhotos.every(ph=>selected.has(ph.id));return <div className={'room-photos'+(dragOverRoom===room.id?' drop-target':'')} key={room.id} onDragOver={e=>{e.preventDefault();if(draggingIds){setDragOverRoom(room.id);setDragOverPhoto(null)}}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node|null))setDragOverRoom(id=>id===room.id?null:id)}} onDrop={e=>{e.preventDefault();if(draggingIds)dropPhotos(room.id,null)}}>
-  <div className="room-photos-head"><h3>{room.name||'Tipologia sem nome'}<span className="room-photos-count">{roomPhotos.length}</span></h3><div className="room-photos-actions">{roomPhotos.length>0&&<Button variant="ghost" size="sm" onClick={()=>toggleRoomSelection(room.id)}>{allSelected?'Limpar seleção':'Selecionar todas'}</Button>}<Button variant="outline" size="sm" disabled={roomBusy} onClick={()=>photoInputRefs.current[room.id]?.click()}>{roomBusy?<LoaderCircle className="spin"/>:<ImagePlus/>} Adicionar fotos</Button></div>
+  <div className="room-photos-head"><h3>{room.name||'Tipologia sem nome'}<span className="room-photos-count">{roomPhotos.length}</span></h3><div className="room-photos-actions">{roomPhotos.length>0&&<Button variant="ghost" size="sm" onClick={()=>toggleRoomSelection(room.id)}>{allSelected?'Limpar seleção':'Selecionar todas'}</Button>}<Button variant="outline" size="sm" disabled={roomBusy} onClick={()=>photoInputRefs.current[room.id]?.click()}>{roomBusy?<LoaderCircle className="spin"/>:<ImagePlus/>} {roomBusy&&photoProgress&&photoProgress.total>1?`A enviar ${Math.min(photoProgress.done+1,photoProgress.total)}/${photoProgress.total}`:'Adicionar fotos'}</Button></div>
   <input ref={el=>{photoInputRefs.current[room.id]=el}} type="file" accept={PHOTO_ACCEPT} multiple className="sr-only" onChange={e=>{uploadRoomPhotos(room.id,e.target.files);e.target.value=''}}/></div>
   {roomPhotos.length?<div className={'room-photo-grid'+(selected.size?' selecting':'')}>{roomPhotos.map((ph,i)=>{const isSelected=selected.has(ph.id),isDragging=!!draggingIds?.includes(ph.id);return <div className={'room-photo '+(isSelected?'selected ':'')+(isDragging?'dragging ':'')+(dragOverPhoto===ph.id&&!isDragging?'drag-over':'')} key={ph.id} draggable onDragStart={e=>startDrag(e,ph)} onDragOver={e=>{e.preventDefault();if(draggingIds){e.stopPropagation();setDragOverPhoto(ph.id);setDragOverRoom(null)}}} onDragLeave={()=>setDragOverPhoto(id=>id===ph.id?null:id)} onDrop={e=>{e.preventDefault();if(draggingIds){e.stopPropagation();dropPhotos(room.id,ph.id)}}} onDragEnd={()=>{setDraggingIds(null);setDragOverPhoto(null);setDragOverRoom(null)}}>
-  <button type="button" className="room-photo-view" aria-label={selected.size?`${isSelected?'Desselecionar':'Selecionar'} ${ph.name}`:`Ver ${ph.name} em ecrã inteiro`} onClick={e=>{if(selected.size||e.ctrlKey||e.metaKey||e.shiftKey)togglePhoto(ph.id);else setLightbox({roomId:room.id,index:i})}}><img src={`/api/properties/photos/file?id=${ph.id}`} alt={ph.name} loading="lazy"/></button>
+  <button type="button" className="room-photo-view" aria-label={selected.size?`${isSelected?'Desselecionar':'Selecionar'} ${ph.name}`:`Ver ${ph.name} em ecrã inteiro`} onClick={e=>{if(selected.size||e.ctrlKey||e.metaKey||e.shiftKey)togglePhoto(ph.id);else setLightbox({roomId:room.id,index:i})}}><img src={`/api/properties/photos/file?id=${ph.id}`} alt={ph.name} loading="lazy" decoding="async"/></button>
   <button type="button" className="room-photo-check" aria-pressed={isSelected} aria-label={`${isSelected?'Desselecionar':'Selecionar'} ${ph.name}`} onClick={()=>togglePhoto(ph.id)}>{isSelected&&<Check size={13} strokeWidth={3}/>}</button>
   <Button variant="ghost" size="icon" className="room-photo-remove" aria-label={`Eliminar ${ph.name}`} disabled={photoDeleting===ph.id} onClick={()=>confirmDeletePhoto(ph)}>{photoDeleting===ph.id?<LoaderCircle className="spin"/>:<Trash2 size={14}/>}</Button></div>})}</div>
   :<p className="field-help">Ainda não há fotos para esta tipologia{draggingIds?' — larga aqui para mover.':'.'}</p>}

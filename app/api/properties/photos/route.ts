@@ -1,6 +1,5 @@
-import {database} from "@/db/raw";
 import {guard,guardEditable,deny,propertyAllowed} from "@/lib/access-server";
-import {listPhotos,uploadPhoto,reorderPhotos,boundedForm} from "@/lib/property-photo-server";
+import {listPhotos,uploadPhoto,reorderPhotos,boundedForm,checkRoom} from "@/lib/property-photo-server";
 export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const sameOrigin=(r:Request)=>!r.headers.get("origin")||r.headers.get("origin")===new URL(r.url).origin;
@@ -23,10 +22,7 @@ export async function POST(request:Request){
  if(!propertyId||!roomId)return reply({error:"Pedido inválido."},400);
  if(!(upload instanceof File))return reply({error:"Seleciona uma foto."},400);
  if(!propertyAllowed(g.access,propertyId))return deny("O teu acesso está limitado a alguns alojamentos.");
- const row=await database().prepare("SELECT payload FROM properties WHERE id=?").bind(propertyId).first<{payload:string}>();
- if(!row)return reply({error:"O alojamento já não existe. Guarda a ficha antes de adicionar fotos."},404);
- const rooms=(JSON.parse(row.payload).rooms||[]) as {id:string}[];
- if(!rooms.some(r=>r.id===roomId))return reply({error:"Esta tipologia já não existe nesta ficha. Guarda a ficha e tenta novamente."},409);
+ const room=await checkRoom(propertyId,roomId);if(!room.ok)return reply({error:room.error},room.status);
  const r=await uploadPhoto(propertyId,roomId,upload,g.access.email);
  if(!r.ok)return reply({error:r.error},r.status);
  return reply({photo:r.photo},201);

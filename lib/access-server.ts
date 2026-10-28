@@ -8,16 +8,21 @@ const none=allAreas("none");
 /** A identidade vem da sessão da app (login); as permissões vêm sempre da base de dados. */
 export async function getAccess(request:Request):Promise<Access>{
  const email=await sessionEmail(request),db=database();
- const total=(await db.prepare("SELECT COUNT(*) AS n FROM team_members").first<{n:number}>())?.n??0;
+ /** Uma só ida à base de dados (transação) em vez de três em série: este passo corre em todos os pedidos à API. */
+ const [totalRes,memberRes,scopeRes]=await db.batch([
+  db.prepare("SELECT COUNT(*) AS n FROM team_members"),
+  db.prepare("SELECT id,role,status,payload FROM team_members WHERE email=?").bind(email),
+  db.prepare("SELECT property_id FROM team_member_properties WHERE member_id=(SELECT id FROM team_members WHERE email=?)").bind(email)]);
+ const total=(totalRes.results[0] as {n:number}|undefined)?.n??0;
  const base={email,name:email,hasIdentity:!!email,authenticated:!!email,setupRequired:total===0};
  const blocked:Access={...base,role:null,isAdmin:false,implicit:false,noAccess:true,areas:none,propertyIds:[]};
  if(!email)return blocked;
- const row=await db.prepare("SELECT id,role,status,payload FROM team_members WHERE email=?").bind(email).first<{id:string,role:Role,status:string,payload:string}>();
+ const row=memberRes.results[0] as {id:string,role:Role,status:string,payload:string}|undefined;
  if(!row||row.status!=="Ativo")return blocked;
  const m=JSON.parse(row.payload) as Member;
  if(row.role==="Administrador")return {...base,name:m.name||email,role:row.role,isAdmin:true,implicit:false,noAccess:false,areas:allAreas("edit"),propertyIds:null};
  let propertyIds:string[]|null=null;
- if(m.propertyScope==="selected"){const {results}=await db.prepare("SELECT property_id FROM team_member_properties WHERE member_id=?").bind(row.id).all<{property_id:string}>();propertyIds=results.map(r=>r.property_id);}
+ if(m.propertyScope==="selected")propertyIds=(scopeRes.results as {property_id:string}[]).map(r=>r.property_id);
  return {...base,name:m.name||email,role:row.role,isAdmin:false,implicit:false,noAccess:false,areas:row.role==="Editor"?allAreas("edit"):row.role==="Leitor"?allAreas("view"):{...none,...m.areas},propertyIds};
 }
 /** Devolve o acesso ou a resposta 403. Com várias áreas, basta uma cumprir o nível pedido. */

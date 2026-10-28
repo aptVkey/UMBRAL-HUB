@@ -11,6 +11,6 @@ export async function GET(request:Request){
  if(!propertyAllowed(g.access,row.property_id))return reply({error:"Não tens acesso a esta foto."},403);
  const object=await bucket().get(row.key);if(!object)return reply({error:"A foto está indisponível. Tenta novamente."},503);
  const ext=row.name.split(".").pop()?.replace(/[^a-z0-9]/gi,"")||"jpg";
- return new Response(object.body,{headers:{"Content-Type":row.type,"Content-Length":String(object.size),"Content-Disposition":`inline; filename="foto.${ext}"; filename*=UTF-8''${encodeURIComponent(row.name)}`,"Cache-Control":"private, max-age=600","X-Content-Type-Options":"nosniff","Content-Security-Policy":"default-src 'none'"}});
+ return new Response(object.body,{headers:{"Content-Type":row.type,"Content-Length":String(object.size),"Content-Disposition":`inline; filename="foto.${ext}"; filename*=UTF-8''${encodeURIComponent(row.name)}`,"Cache-Control":"private, max-age=31536000, immutable","X-Content-Type-Options":"nosniff","Content-Security-Policy":"default-src 'none'"}});
  }catch(e){console.error("Load room photo",e);return reply({error:"Não foi possível obter a foto."},503);}
 }
