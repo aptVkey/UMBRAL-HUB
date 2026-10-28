@@ -83,7 +83,7 @@ export default function Home(){
    const next=[...room];const [moved]=next.splice(from,1);next.splice(to,0,moved);
    setPhotos([...rest,...next]);
    persistPhotoOrder(roomId,next.map(p=>p.id));return}
-  relocate(ids,roomId,beforeId,moving.some(p=>p.roomId!==roomId)?movedMessage(ids.length,roomId):undefined)}
+  relocate(ids,roomId,beforeId,moving.some(p=>p.roomId!==roomId)?movedMessage(ids.length,roomId):undefined).then(ok=>{if(ok&&ids.length>1)setSelected(new Set())})}
  const roomLabel=(roomId:string)=>draft?.rooms.find(r=>r.id===roomId)?.name||'Tipologia sem nome';
  const movedMessage=(n:number,roomId:string)=>n===1?`Foto movida para ${roomLabel(roomId)}.`:`${n} fotos movidas para ${roomLabel(roomId)}.`;
  const orderedSelection=()=>draft?draft.rooms.flatMap(r=>photos.filter(p=>p.roomId===r.id&&selected.has(p.id))).map(p=>p.id):[];
@@ -195,21 +195,21 @@ export default function Home(){
  :!draft.version?<SmallEmpty icon={Image} title="Guarda primeiro o alojamento" text="Depois de guardares a ficha podes começar a adicionar fotos a cada tipologia."/>
  :photosLoading?<div className="loading-list"><Skeleton className="h-24"/><Skeleton className="h-24"/></div>
  :photosError?<div className="error-banner" role="alert">{photosError}<Button variant="outline" onClick={()=>loadPhotos(draft.id)}>Tentar novamente</Button></div>
- :<>{selected.size>0&&<div className="photo-bulkbar" role="toolbar" aria-label="Ações sobre as fotos selecionadas">
-  <span className="photo-bulkbar-count"><Check size={15}/>{selected.size} {selected.size===1?'foto selecionada':'fotos selecionadas'}</span>
-  <Button variant="ghost" size="sm" onClick={()=>setSelected(new Set())}><X/> Limpar seleção</Button>
+ :<>{photos.length>0&&<div className={'photo-bulkbar'+(selected.size?' active':'')} role="toolbar" aria-label="Ações sobre as fotos selecionadas">{selected.size===0?<span className="photo-bulkbar-hint"><Image size={15}/>Seleciona fotos pela caixa no canto de cada uma para as copiar, mover ou eliminar — ou arrasta-as para outra tipologia.</span>:<>
+  <span className="photo-bulkbar-count"><Check size={15}/>{selected.size} {selected.size===1?'selecionada':'selecionadas'}</span>
+  <Button variant="ghost" size="icon" className="photo-bulkbar-clear" aria-label="Limpar seleção" title="Limpar seleção" onClick={()=>setSelected(new Set())}><X/></Button>
   <div className="photo-bulkbar-actions">
-   <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={!!bulkBusy}>{bulkBusy==='copy'?<LoaderCircle className="spin"/>:<Copy/>} Copiar para <ChevronDown/></Button></DropdownMenuTrigger>
+   <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={!!bulkBusy}>{bulkBusy==='copy'?<LoaderCircle className="spin"/>:<Copy/>} Copiar <ChevronDown/></Button></DropdownMenuTrigger>
     <DropdownMenuContent align="end"><DropdownMenuLabel>Copiar as fotos selecionadas para…</DropdownMenuLabel>
      <DropdownMenuItem onSelect={()=>copySelected(null)}>Duplicar na mesma tipologia</DropdownMenuItem><DropdownMenuSeparator/>
      {draft.rooms.map(r=><DropdownMenuItem key={r.id} onSelect={()=>copySelected(r.id)}>{r.name||'Tipologia sem nome'}</DropdownMenuItem>)}
     </DropdownMenuContent></DropdownMenu>
-   <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={!!bulkBusy}>{bulkBusy==='move'?<LoaderCircle className="spin"/>:<FolderInput/>} Mover para <ChevronDown/></Button></DropdownMenuTrigger>
+   <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={!!bulkBusy}>{bulkBusy==='move'?<LoaderCircle className="spin"/>:<FolderInput/>} Mover <ChevronDown/></Button></DropdownMenuTrigger>
     <DropdownMenuContent align="end"><DropdownMenuLabel>Mover as fotos selecionadas para…</DropdownMenuLabel>
      {draft.rooms.map(r=><DropdownMenuItem key={r.id} disabled={photos.filter(p=>selected.has(p.id)).every(p=>p.roomId===r.id)} onSelect={()=>moveSelected(r.id)}>{r.name||'Tipologia sem nome'}</DropdownMenuItem>)}
     </DropdownMenuContent></DropdownMenu>
    <Button variant="outline" size="sm" className="photo-bulkbar-delete" disabled={!!bulkBusy} onClick={confirmBulkDelete}>{bulkBusy==='delete'?<LoaderCircle className="spin"/>:<Trash2/>} Eliminar</Button>
-  </div></div>}
+  </div></>}</div>}
  {draft.rooms.map(room=>{const roomPhotos=photos.filter(ph=>ph.roomId===room.id),roomBusy=photoBusy===room.id,allSelected=roomPhotos.length>0&&roomPhotos.every(ph=>selected.has(ph.id));return <div className={'room-photos'+(dragOverRoom===room.id?' drop-target':'')} key={room.id} onDragOver={e=>{e.preventDefault();if(draggingIds){setDragOverRoom(room.id);setDragOverPhoto(null)}}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node|null))setDragOverRoom(id=>id===room.id?null:id)}} onDrop={e=>{e.preventDefault();if(draggingIds)dropPhotos(room.id,null)}}>
   <div className="room-photos-head"><h3>{room.name||'Tipologia sem nome'}<span className="room-photos-count">{roomPhotos.length}</span></h3><div className="room-photos-actions">{roomPhotos.length>0&&<Button variant="ghost" size="sm" onClick={()=>toggleRoomSelection(room.id)}>{allSelected?'Limpar seleção':'Selecionar todas'}</Button>}<Button variant="outline" size="sm" disabled={roomBusy} onClick={()=>photoInputRefs.current[room.id]?.click()}>{roomBusy?<LoaderCircle className="spin"/>:<ImagePlus/>} Adicionar fotos</Button></div>
   <input ref={el=>{photoInputRefs.current[room.id]=el}} type="file" accept={PHOTO_ACCEPT} multiple className="sr-only" onChange={e=>{uploadRoomPhotos(room.id,e.target.files);e.target.value=''}}/></div>
