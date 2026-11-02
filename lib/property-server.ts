@@ -1,8 +1,7 @@
 import {database} from "@/db/raw";
 import {unlinkConflict,conflictMessage} from "./operator-server";
 import {publishNewCustomAmenities} from "./amenity-catalog";
-import {pruneOrphanPhotos} from "./property-photo-server";
-import {bucket} from "./corporate-server";
+import {pruneOrphanPhotos,removePhotoFiles} from "./property-photo-server";
 import type {Property} from "./property";
 export type ApplyResult={ok:true,property:Property&{updatedAt:string}}|{ok:false,status:number,error:string};
 /**
@@ -46,6 +45,6 @@ export async function applyPropertyDelete(id:string,version:number):Promise<{ok:
  const {results:photos}=await db.prepare("SELECT key FROM property_room_photos WHERE property_id=?").bind(id).all<{key:string}>();
  const r=await db.prepare("DELETE FROM properties WHERE id=? AND version=?").bind(id,version).run();
  if(!r.meta.changes)return {ok:false,status:409,error:"A ficha foi alterada. Reabre-a antes de eliminar."};
- for(const p of photos){try{await bucket().delete(p.key)}catch(e){console.error("Remove room photo on property delete",e)}}
+ for(const p of photos)await removePhotoFiles(p.key);
  return {ok:true};
 }

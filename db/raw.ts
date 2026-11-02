@@ -58,3 +58,9 @@ class Files {
   }
 }
 export function storage() { config(); return new Files() as unknown as R2Bucket; }
+/** Copia um ficheiro dentro do Storage, sem o descarregar. Devolve false se não for possível. */
+export async function copyObject(from: string, to: string) {
+  const { url, headers } = config();
+  const r = await fetch(`${url}/storage/v1/object/copy`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ bucketId: BUCKET, sourceKey: from, destinationKey: to }) });
+  return r.ok;
+}

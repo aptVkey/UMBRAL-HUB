@@ -13,6 +13,10 @@ export const MAX_PHOTO_SIZE=10*1024*1024;
 export const PHOTO_ACCEPT=".png,.jpg,.jpeg,.webp";
 export function checkPhoto(file:{size:number;name:string}){if(file.size===0)return "O ficheiro está vazio.";if(file.size>MAX_PHOTO_SIZE)return "Cada foto pode ter no máximo 10 MB.";if(!/\.(png|jpe?g|webp)$/i.test(file.name))return "Utiliza imagens PNG, JPG ou WEBP.";return "";}
 export type RoomPhoto={id:string;roomId:string;name:string;size:number;type:string;uploadedBy:string;uploadedAt:string;position:number};
+/** A grelha e o ecrã inteiro nunca precisam do original: cada foto tem no Storage duas versões JPEG reduzidas, geradas no browser ao enviar. */
+export const PHOTO_THUMB=480,PHOTO_VIEW=1600,PHOTO_WIDTHS=[PHOTO_THUMB,PHOTO_VIEW];
+export const photoUrl=(id:string,width:number)=>`/api/properties/photos/file?id=${id}&w=${width}`;
+export const photoVariantKey=(key:string,width:number)=>`${key}.w${width}.jpg`;
 /** Move `ids` (pela ordem dada) para a tipologia `roomId`, antes da foto `beforeId` (ou no fim). Só renumera as tipologias afetadas. Usada no cliente (resultado imediato) e no servidor (gravação). */
 export function relocatePhotos(photos:RoomPhoto[],ids:string[],roomId:string,beforeId:string|null):RoomPhoto[]{
  const moving=[...new Set(ids)].map(id=>photos.find(p=>p.id===id)).filter((p):p is RoomPhoto=>!!p);

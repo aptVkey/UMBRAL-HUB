@@ -227,6 +227,9 @@ h2,h3{color:var(--brand-navy)}
 .room-photo.selected{box-shadow:0 0 0 3px var(--brand-navy)}
 .room-photo.selected .room-photo-check{background:var(--brand-navy)}
 .room-photo.selected img{opacity:.82}
+.room-photo.uploading{cursor:default}
+.room-photo.uploading img{opacity:.55}
+.room-photo-spinner{position:absolute;inset:0;display:grid;place-items:center;color:var(--brand-navy)}
 .photo-bulkbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:58px;padding:10px 14px;margin-bottom:20px;border:1px dashed #d6d9ee;border-radius:10px;background:#fafbff}
 .photo-bulkbar.active{position:sticky;top:12px;z-index:5;border:1px solid #d6d9ee;background:var(--brand-navy-soft);box-shadow:0 6px 18px #2a31752e}
 .photo-bulkbar-hint{display:inline-flex;align-items:center;gap:8px;font-size:12px;line-height:1.5;color:#505050}.photo-bulkbar-hint svg{flex-shrink:0;color:var(--brand-navy)}

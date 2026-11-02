@@ -1,6 +1,8 @@
 import {guard,guardEditable,deny,propertyAllowed} from "@/lib/access-server";
 import {listPhotos,uploadPhoto,reorderPhotos,boundedForm,checkRoom} from "@/lib/property-photo-server";
+import {PHOTO_WIDTHS} from "@/lib/property";
 export const dynamic="force-dynamic";
+const MAX_VARIANT_SIZE=2*1024*1024;
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const sameOrigin=(r:Request)=>!r.headers.get("origin")||r.headers.get("origin")===new URL(r.url).origin;
 export async function GET(request:Request){
@@ -23,7 +25,8 @@ export async function POST(request:Request){
  if(!(upload instanceof File))return reply({error:"Seleciona uma foto."},400);
  if(!propertyAllowed(g.access,propertyId))return deny("O teu acesso está limitado a alguns alojamentos.");
  const room=await checkRoom(propertyId,roomId);if(!room.ok)return reply({error:room.error},room.status);
- const r=await uploadPhoto(propertyId,roomId,upload,g.access.email);
+ const variants=PHOTO_WIDTHS.flatMap(width=>{const file=form.get(`variant${width}`);return file instanceof File&&file.size>0&&file.size<=MAX_VARIANT_SIZE?[{width,file}]:[]});
+ const r=await uploadPhoto(propertyId,roomId,upload,g.access.email,variants);
  if(!r.ok)return reply({error:r.error},r.status);
  return reply({photo:r.photo},201);
  }catch(e){console.error("Upload room photo",e);return reply({error:"Não foi possível guardar a foto. Tenta novamente."},503);}
