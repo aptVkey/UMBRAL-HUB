@@ -47,6 +47,17 @@ export const propertySchema = z.object({
 export type Unit = z.infer<typeof unitSchema>;
 export type Property = z.infer<typeof propertySchema>;
 export type SavedProperty = Property & {updatedAt:string};
+const CARD_KINDS=["OTA","Operador turístico","Agência de viagens","Canal direto","Outro"];
+/** Tipo do cartão de condições comerciais a partir do tipo do operador (Wholesaler/Corporate → Outro). */
+export const cardKind=(type?:string)=>type&&CARD_KINDS.includes(type)?type:"Outro";
+export const emptyCard=(o:{id:string,name:string,type?:string}):Property["operators"][number]=>({id:o.id,name:o.name,kind:cardKind(o.type),commission:"",commissionType:"percent",basis:"",payment:"",cancellation:"",rules:"",rateIds:[]});
+/**
+ * Um cartão de condições comerciais por operador ligado, pela ordem das ligações. Ligações feitas
+ * do lado do operador ganham um cartão vazio; cartões de operadores já desligados deixam de aparecer.
+ */
+export function alignCards(cards:Property["operators"],partnerIds:string[],operators:Map<string,{name:string,type?:string}>){
+ return partnerIds.flatMap(id=>{const card=cards.find(c=>c.id===id);if(card)return [card];const o=operators.get(id);return o?[emptyCard({id,...o})]:[]});
+}
 export const amenityGroups: Record<string,string[]> = {
  "Conforto e equipamento":["Wi-Fi","Ar condicionado","Aquecimento","Televisão","Cofre","Minibar","Secretária","Varanda ou terraço","Roupeiro"],
  "Casa de banho e cozinha":["Casa de banho privativa","Secador de cabelo","Produtos de higiene","Toalhas","Kitchenette","Cozinha equipada","Frigorífico","Micro-ondas","Máquina de café"],
