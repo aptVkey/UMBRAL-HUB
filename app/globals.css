@@ -403,3 +403,20 @@ h2,h3{color:var(--brand-navy)}
 .op-code{width:220px;flex-shrink:0;cursor:default}
 .op-code input{height:36px;font-size:13px;background:#fff}
 @media(max-width:767px){.op-code{width:auto;flex-basis:calc(100% - 29px);margin-left:29px}}
+/* Camas estruturadas por tipologia */
+.bed-editor{gap:10px}
+.bed-rows{display:flex;flex-direction:column;gap:8px}
+.bed-row{display:flex;align-items:center;gap:10px}
+.bed-row>[data-slot=select-trigger]{flex:1;min-width:0;max-width:320px}
+.bed-count{display:flex;align-items:center;gap:6px}
+.bed-count [data-slot=button]{width:34px;min-height:34px;height:34px}
+.field .bed-count input{width:64px;min-height:36px;height:36px;padding:6px 8px;text-align:center;-moz-appearance:textfield}
+.bed-count input::-webkit-outer-spin-button,.bed-count input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.bed-remove{color:#91a0a9}
+.bed-empty{font-size:13px;color:#7a8791;border:1px dashed #dce3e9;border-radius:6px;padding:12px 14px}
+.bed-footer{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
+.bed-footer [data-slot=button]{font-size:12px;min-height:34px;padding:0 12px}
+.bed-summary{font-size:13px;color:#505050}
+.bed-summary strong{font-weight:550;color:var(--brand-navy,#2a3175)}
+.field small.bed-warning{color:#947132}
+@media(max-width:767px){.bed-row{flex-wrap:wrap}.bed-row>[data-slot=select-trigger]{flex-basis:100%;max-width:none}}

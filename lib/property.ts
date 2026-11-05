@@ -5,7 +5,25 @@ const required = short.trim().min(1, "Preenche este campo.");
 const id = z.string().uuid();
 const amount = z.string().max(15).refine(v => v === "" || (/^\d+(\.\d{1,2})?$/.test(v) && Number(v) <= 1000000), "Introduz um valor válido, sem símbolos.");
 const date = z.string().refine(v => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), "Data inválida.");
-export const roomSchema = z.object({id,name:required,code:short,units:z.number().int().min(1).max(10000),capacity:z.number().int().min(1).max(100),beds:short,area:amount,notes:text});
+/** Tipos de cama: `beds` é quantas camas o móvel conta (um beliche são duas) e `places` quantas pessoas dormem nele. Os ids são estáveis (servem os dashboards); os rótulos podem mudar. */
+export const BED_TYPES=[
+ {id:"double",label:"Cama de casal",beds:1,places:2},
+ {id:"single",label:"Cama individual",beds:1,places:1},
+ {id:"sofa_double",label:"Sofá-cama de casal",beds:1,places:2},
+ {id:"sofa_single",label:"Sofá-cama individual",beds:1,places:1},
+ {id:"bunk",label:"Beliche",beds:2,places:2},
+ {id:"extra",label:"Cama extra",beds:1,places:1},
+] as const;
+export type BedType=typeof BED_TYPES[number]["id"];
+export const bedType=(id:string)=>BED_TYPES.find(b=>b.id===id);
+/** Categoria normalizada da tipologia, para agrupar (ex.: quantos quartos duplos no Algarve) independentemente do nome comercial. */
+export const ROOM_CATEGORIES=["Single","Duplo","Twin","Triplo","Quádruplo","Familiar","Suite","Estúdio (T0)","Apartamento T1","Apartamento T2","Apartamento T3","Apartamento T4 ou superior","Outro"];
+export const bedSchema=z.object({type:z.string().refine(v=>!!bedType(v),"Tipo de cama inválido."),count:z.number().int().min(1,"Indica pelo menos 1.").max(50)});
+export const roomSchema = z.object({id,name:required,code:short,category:z.string().max(60).refine(v=>v===""||ROOM_CATEGORIES.includes(v),"Categoria inválida.").default(""),units:z.number().int().min(1).max(10000),capacity:z.number().int().min(1).max(100),bedding:z.array(bedSchema).max(10).default([]).refine(v=>new Set(v.map(b=>b.type)).size===v.length,"Cada tipo de cama só pode aparecer uma vez."),beds:short,area:amount,notes:text});
+/** Camas e lugares de uma unidade da tipologia. */
+export function roomBeds(r:{bedding?:{type:string,count:number}[]}){let beds=0,places=0;for(const b of r.bedding||[]){const t=bedType(b.type);if(!t)continue;const n=Number(b.count)||0;beds+=t.beds*n;places+=t.places*n;}return {beds,places};}
+/** Fichas gravadas antes da categoria e das camas estruturadas não têm estes campos. */
+export const normalizeRoom=<T extends object>(r:T)=>({category:"",bedding:[],...r}) as T&{category:string,bedding:{type:string,count:number}[]};
 export const rateSchema = z.object({id,name:required,code:required,board:short,refundable:z.boolean(),price:amount,minNights:z.number().int().min(1).max(365),start:date,end:date,cancellation:text,payment:text,notes:text}).refine(v=>!v.start||!v.end||v.end>=v.start,{path:["end"],message:"A data final deve ser igual ou posterior à inicial."});
 export const operatorSchema = z.object({id,name:required,kind:short,commission:amount,commissionType:z.enum(["percent","fixed"]),basis:text,payment:text,cancellation:text,rules:text,rateIds:z.array(id).max(100)}).refine(v=>v.commissionType!=="percent"||Number(v.commission)<=100,{path:["commission"],message:"A comissão deve estar entre 0 e 100%."});
 export const unitSchema = z.object({id,number:short.trim().min(1,"Indica o número do quarto.").max(60),categoryCode:short,categoryName:short});
