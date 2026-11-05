@@ -405,18 +405,24 @@ h2,h3{color:var(--brand-navy)}
 @media(max-width:767px){.op-code{width:auto;flex-basis:calc(100% - 29px);margin-left:29px}}
 /* Camas estruturadas por tipologia */
 .bed-editor{gap:10px}
-.bed-rows{display:flex;flex-direction:column;gap:8px}
-.bed-row{display:flex;align-items:center;gap:10px}
-.bed-row>[data-slot=select-trigger]{flex:1;min-width:0;max-width:320px}
-.bed-count{display:flex;align-items:center;gap:6px}
-.bed-count [data-slot=button]{width:34px;min-height:34px;height:34px}
-.field .bed-count input{width:64px;min-height:36px;height:36px;padding:6px 8px;text-align:center;-moz-appearance:textfield}
-.bed-count input::-webkit-outer-spin-button,.bed-count input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.bed-remove{color:#91a0a9}
-.bed-empty{font-size:13px;color:#7a8791;border:1px dashed #dce3e9;border-radius:6px;padding:12px 14px}
-.bed-footer{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
-.bed-footer [data-slot=button]{font-size:12px;min-height:34px;padding:0 12px}
-.bed-summary{font-size:13px;color:#505050}
-.bed-summary strong{font-weight:550;color:var(--brand-navy,#2a3175)}
+.bed-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bed-option{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid #e4e9ee;border-radius:8px;background:#fff;transition:border-color .15s,background .15s}
+.bed-option.selected{border-color:#00adb6;background:#f4fbfb}
+.bed-icon{width:36px;height:36px;border-radius:8px;background:#f0f3f7;color:#7a8791;display:grid;place-items:center;flex-shrink:0;transition:color .15s,background .15s}
+.bed-icon svg{width:19px;height:19px;stroke-width:1.6}
+.bed-option.selected .bed-icon{background:#fff;color:#00777e;box-shadow:0 0 0 1px #d3eff0}
+.bed-option-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.bed-option-text strong{font-size:13px;font-weight:500;color:#505050;line-height:1.35}
+.bed-option.selected .bed-option-text strong{color:#2a3175}
+.bed-option-text span{font-size:11.5px;color:#8a97a3;line-height:1.35}
+.bed-stepper{display:flex;align-items:stretch;height:34px;border:1px solid #dce3e9;border-radius:7px;background:#fff;overflow:hidden;flex-shrink:0}
+.bed-stepper button{width:30px;display:grid;place-items:center;border:0;background:none;color:#2a3175;padding:0}
+.bed-stepper button svg{width:14px;height:14px}
+.bed-stepper button:hover:not(:disabled){background:#eff0f8}
+.bed-stepper button:disabled{color:#c5ced5}
+.field .bed-stepper input{width:34px;min-height:0;height:auto;padding:0;border:0;border-left:1px solid #edf0f2;border-right:1px solid #edf0f2;border-radius:0;text-align:center;font-size:14px;font-weight:550;color:#2a3175;box-shadow:none;background:#fff}
+.field .bed-stepper input:focus{box-shadow:none;background:#f7f8fc}
+.bed-summary-bar{display:flex;flex-wrap:wrap;gap:4px 22px;background:#eff0f8;border-radius:6px;padding:11px 14px;font-size:13px;color:#505050}
+.bed-summary-bar strong{font-weight:550;color:#2a3175;margin-left:4px}
 .field small.bed-warning{color:#947132}
-@media(max-width:767px){.bed-row{flex-wrap:wrap}.bed-row>[data-slot=select-trigger]{flex-basis:100%;max-width:none}}
+@media(max-width:767px){.bed-grid{grid-template-columns:1fr}.field .bed-stepper input{font-size:16px}}

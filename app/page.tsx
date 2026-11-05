@@ -1,6 +1,6 @@
 "use client";
 import {useState,useEffect,useRef,useMemo} from 'react';
-import {KeyRound,DoorOpen,Network,Wrench,Hotel,Building2,Handshake,Megaphone,GraduationCap,Plus,ChevronRight,ArrowLeft,BedDouble,MapPin,Check,Save,Trash2,Wifi,FileText,ShieldCheck,Settings2,Wallet,LoaderCircle,PencilLine,Layers,ArrowUpRight,Search,Bell,Image,ImagePlus,Download,Copy,FolderInput,X,ChevronDown,Minus} from 'lucide-react';
+import {KeyRound,DoorOpen,Network,Wrench,Hotel,Building2,Handshake,Megaphone,GraduationCap,Plus,ChevronRight,ArrowLeft,BedDouble,MapPin,Check,Save,Trash2,Wifi,FileText,ShieldCheck,Settings2,Wallet,LoaderCircle,PencilLine,Layers,ArrowUpRight,Search,Bell,Image,ImagePlus,Download,Copy,FolderInput,X,ChevronDown,Minus,BedSingle,Sofa,Bed} from 'lucide-react';
 import {SidebarProvider,Sidebar,SidebarHeader,SidebarContent,SidebarFooter,SidebarMenu,SidebarMenuItem,SidebarMenuButton,SidebarTrigger,useSidebar} from '@/components/ui/sidebar';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -243,18 +243,23 @@ export default function Home(){
  </SidebarProvider>
 }
 function SmallEmpty({icon:Icon,title,text}:{icon:any,title:string,text:string}){return <Empty className="small-empty"><EmptyHeader><EmptyMedia variant="icon"><Icon/></EmptyMedia><EmptyTitle>{title}</EmptyTitle><EmptyDescription>{text}</EmptyDescription></EmptyHeader></Empty>}
-/** Camas de uma unidade da tipologia: um tipo por linha, com quantidade. Serve de base aos totais de camas por região, localidade e categoria. */
+/** Camas de uma unidade da tipologia: todos os tipos visíveis, cada um com a sua quantidade (0 = não tem). Serve de base aos totais de camas por região, localidade e categoria. */
+const BED_ICON:Record<string,typeof Bed>={double:BedDouble,single:BedSingle,sofa_double:Sofa,sofa_single:Sofa,bunk:Layers,extra:Bed};
 function BedEditor({room,onChange}:{room:Property['rooms'][number],onChange:(b:Property['rooms'][number]['bedding'])=>void}){
- const bedding=room.bedding||[],used=new Set(bedding.map(b=>b.type)),free=BED_TYPES.filter(t=>!used.has(t.id));
- const set=(j:number,p:Partial<{type:string,count:number}>)=>onChange(bedding.map((b,k)=>k===j?{...b,...p}:b));
+ const bedding=room.bedding||[],count=(id:string)=>bedding.find(b=>b.type===id)?.count||0;
+ const setCount=(id:string,n:number)=>{const v=Math.min(50,Math.max(0,Math.round(n)||0));onChange(BED_TYPES.map(t=>({type:t.id as string,count:t.id===id?v:count(t.id)})).filter(b=>b.count>0))};
  const {beds,places}=roomBeds(room),units=Number(room.units)||0,capacity=Number(room.capacity)||0;
  return <div className="field wide bed-editor"><span className="field-label">Camas por unidade</span>
-  {bedding.length?<div className="bed-rows">{bedding.map((b,j)=>{const label=BED_TYPES.find(t=>t.id===b.type)?.label||b.type;return <div className="bed-row" key={b.type}>
-   <Select value={b.type} onValueChange={t=>set(j,{type:t})}><SelectTrigger aria-label="Tipo de cama"><SelectValue/></SelectTrigger><SelectContent>{BED_TYPES.filter(t=>t.id===b.type||!used.has(t.id)).map(t=><SelectItem value={t.id} key={t.id}>{t.label}</SelectItem>)}</SelectContent></Select>
-   <div className="bed-count"><Button type="button" variant="outline" size="icon" aria-label={`Menos uma: ${label}`} disabled={b.count<=1} onClick={()=>set(j,{count:b.count-1})}><Minus/></Button><Input type="number" min={1} max={50} value={b.count} aria-label={`Quantidade: ${label}`} onChange={e=>set(j,{count:Math.min(50,Math.max(1,Math.round(Number(e.target.value))||1))})}/><Button type="button" variant="outline" size="icon" aria-label={`Mais uma: ${label}`} disabled={b.count>=50} onClick={()=>set(j,{count:b.count+1})}><Plus/></Button></div>
-   <Button type="button" variant="ghost" size="icon" className="bed-remove" aria-label={`Remover ${label}`} onClick={()=>onChange(bedding.filter((_,k)=>k!==j))}><Trash2/></Button>
-  </div>})}</div>:<p className="bed-empty">Ainda não indicaste as camas desta tipologia.</p>}
-  <div className="bed-footer"><Button type="button" variant="outline" size="sm" disabled={!free.length} onClick={()=>onChange([...bedding,{type:free[0].id,count:1}])}><Plus/> Adicionar cama</Button>{beds>0&&<span className="bed-summary">Por unidade: <strong>{plural(beds,'cama','camas')} · {plural(places,'lugar','lugares')}</strong>{units>1&&<> · Na tipologia: <strong>{plural(beds*units,'cama','camas')}</strong></>}</span>}</div>
+  <div className="bed-grid">{BED_TYPES.map(t=>{const n=count(t.id),Icon=BED_ICON[t.id]||Bed;return <div className={'bed-option'+(n?' selected':'')} key={t.id}>
+   <span className="bed-icon"><Icon/></span>
+   <span className="bed-option-text"><strong>{t.label}</strong><span>{t.beds>1?`${plural(t.beds,'cama','camas')} · `:''}{plural(t.places,'lugar','lugares')}</span></span>
+   <div className="bed-stepper" role="group" aria-label={`Quantidade: ${t.label}`}>
+    <button type="button" aria-label={`Menos uma: ${t.label}`} disabled={!n} onClick={()=>setCount(t.id,n-1)}><Minus/></button>
+    <input inputMode="numeric" value={n} aria-label={`Quantidade: ${t.label}`} onFocus={e=>e.currentTarget.select()} onChange={e=>setCount(t.id,Number(e.target.value.replace(/\D/g,'')))}/>
+    <button type="button" aria-label={`Mais uma: ${t.label}`} disabled={n>=50} onClick={()=>setCount(t.id,n+1)}><Plus/></button>
+   </div>
+  </div>})}</div>
+  <div className="bed-summary-bar">{beds?<><span>Por unidade <strong>{plural(beds,'cama','camas')} · {plural(places,'lugar','lugares')}</strong></span>{units>0&&<span>Na tipologia ({plural(units,'unidade','unidades')}) <strong>{plural(beds*units,'cama','camas')}</strong></span>}</>:<span>Usa o + para indicar quantas camas de cada tipo tem cada unidade.</span>}</div>
   {capacity>0&&places>capacity&&<small className="bed-warning">As camas dão {plural(places,'lugar','lugares')}, mais do que a ocupação máxima ({capacity}).</small>}
  </div>}
 function RecordHeader({number,name,onRemove}:{number:number,name:string,onRemove:()=>void}){return <div className="record-heading"><span className="record-number">{String(number).padStart(2,'0')}</span><h3>{name}</h3><Button variant="ghost" size="icon" aria-label={`Remover ${name}`} onClick={onRemove}><Trash2 size={16}/></Button></div>}
