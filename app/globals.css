@@ -503,3 +503,14 @@ h2,h3{color:var(--brand-navy)}
 @media(max-width:767px){.training-goals,.training-goals-editor{grid-template-columns:1fr}.training-week{grid-template-columns:1fr}.training-plan-intro,.training-goals-panel{padding:20px}.schedule-row{grid-template-columns:1fr 10px 1fr 36px}.schedule-title,.schedule-details{grid-column:1/-1}.schedule-row>button{grid-column:4;grid-row:1}.schedule-row input{font-size:16px}.training-content-block{gap:10px}}
 .rich-text ul,.training-goal ul{list-style:disc}
 .schedule-row input,.content-edit input,.content-edit textarea{background:#fff}
+/* Formação: eliminar áreas, cargos, SOPs e tarefas */
+.training-role-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.training-delete[data-size=icon]{width:38px;min-height:38px}
+.routine-item{position:relative;padding-right:84px!important}
+.routine-item-actions{position:absolute;top:8px;right:8px;display:flex;gap:2px;opacity:.55;transition:opacity .15s}
+.routine-item:hover .routine-item-actions,.routine-item-actions:focus-within{opacity:1}
+.routine-item-actions [data-slot=button]{width:30px;min-height:30px;height:30px;color:#7d8195}
+.routine-item-actions [data-slot=button].danger-link{color:#a8323d}
+.routine-item-actions [data-slot=button] svg{width:15px;height:15px}
+.is-readonly .training-delete,.is-readonly .routine-item-actions{display:none!important}
+@media(hover:none){.routine-item-actions{opacity:1}}
