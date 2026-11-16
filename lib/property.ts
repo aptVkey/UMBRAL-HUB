@@ -24,12 +24,17 @@ export const roomSchema = z.object({id,name:required,code:short,category:z.strin
 export function roomBeds(r:{bedding?:{type:string,count:number}[]}){let beds=0,places=0;for(const b of r.bedding||[]){const t=bedType(b.type);if(!t)continue;const n=Number(b.count)||0;beds+=t.beds*n;places+=t.places*n;}return {beds,places};}
 /** Fichas gravadas antes da categoria e das camas estruturadas não têm estes campos. */
 /** Tarifas gravadas antes da separação interna/operadores são internas. */
-export const normalizeRate=<T extends object>(r:T)=>({audience:"internal",...r}) as T&{audience:RateAudience};
+export const REFUND_POLICIES=[{id:"refundable",label:"Reembolsável"},{id:"non_refundable",label:"Não reembolsável"},{id:"partial",label:"Parcialmente reembolsável"}] as const;
+export type RefundPolicy=typeof REFUND_POLICIES[number]["id"];
+/** Política de reembolso de uma tarifa; as tarifas antigas só tinham o campo reembolsável sim/não. */
+export const refundPolicyOf=(r:{refundable:boolean,refundPolicy?:RefundPolicy}):RefundPolicy=>r.refundPolicy??(r.refundable?"refundable":"non_refundable");
+export const refundLabel=(r:{refundable:boolean,refundPolicy?:RefundPolicy})=>REFUND_POLICIES.find(p=>p.id===refundPolicyOf(r))!.label;
+export const normalizeRate=<T extends {refundable:boolean,refundPolicy?:RefundPolicy}>(r:T)=>({audience:"internal",...r,refundPolicy:refundPolicyOf(r)}) as T&{audience:RateAudience,refundPolicy:RefundPolicy};
 export const normalizeRoom=<T extends object>(r:T)=>({category:"",bedding:[],...r}) as T&{category:string,bedding:{type:string,count:number}[]};
 /** A quem se destina a tarifa: uso interno da equipa ou apenas para os operadores parceiros. */
 export const RATE_AUDIENCES=[{id:"internal",label:"Tarifas internas"},{id:"operators",label:"Tarifas para operadores"}] as const;
 export type RateAudience=typeof RATE_AUDIENCES[number]["id"];
-export const rateSchema = z.object({id,audience:z.enum(["internal","operators"]).default("internal"),name:required,code:required,board:short,refundable:z.boolean(),price:amount,minNights:z.number().int().min(1).max(365),start:date,end:date,cancellation:text,payment:text,notes:text}).refine(v=>!v.start||!v.end||v.end>=v.start,{path:["end"],message:"A data final deve ser igual ou posterior à inicial."});
+export const rateSchema = z.object({id,audience:z.enum(["internal","operators"]).default("internal"),name:required,code:required,board:short,refundable:z.boolean(),refundPolicy:z.enum(["refundable","non_refundable","partial"]).optional(),price:amount,minNights:z.number().int().min(1).max(365),start:date,end:date,cancellation:text,payment:text,notes:text}).refine(v=>!v.start||!v.end||v.end>=v.start,{path:["end"],message:"A data final deve ser igual ou posterior à inicial."});
 export const operatorSchema = z.object({id,name:required,kind:short,commission:amount,commissionType:z.enum(["percent","fixed"]),basis:text,payment:text,cancellation:text,rules:text,rateIds:z.array(id).max(100)}).refine(v=>v.commissionType!=="percent"||Number(v.commission)<=100,{path:["commission"],message:"A comissão deve estar entre 0 e 100%."});
 export const unitSchema = z.object({id,number:short.trim().min(1,"Indica o número do quarto.").max(60),categoryCode:short,categoryName:short});
 export const MAX_PHOTO_SIZE=10*1024*1024;

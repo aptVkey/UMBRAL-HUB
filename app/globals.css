@@ -526,3 +526,6 @@ h2,h3{color:var(--brand-navy)}
 .rate-move:hover{background:var(--brand-navy-soft)}
 .record-heading .rate-move{margin-left:auto}
 @media(max-width:767px){.rate-audience-tabs{display:flex;width:100%}.rate-audience-tabs button{flex:1;padding:0 8px;font-size:13px;gap:6px}.rate-audience-tabs button svg{display:none}.record-heading{flex-wrap:wrap}}
+.refund-options{display:flex;flex-wrap:wrap;gap:8px}
+.refund-option{display:inline-flex;align-items:center;gap:9px;padding:9px 13px;border:1px solid #dce3e9;border-radius:7px;font-size:14px;cursor:pointer;background:#fff;color:#505050;font-weight:400!important}
+.refund-option.selected{border-color:#00adb6;background:#f4fbfb;color:var(--brand-navy)}
