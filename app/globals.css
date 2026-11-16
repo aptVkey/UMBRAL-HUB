@@ -515,10 +515,14 @@ h2,h3{color:var(--brand-navy)}
 .is-readonly .training-delete,.is-readonly .routine-item-actions{display:none!important}
 @media(hover:none){.routine-item-actions{opacity:1}}
 /* Tarifas internas / para operadores */
-.rate-audience-tabs{display:flex;gap:6px;border-bottom:1px solid #dce3e9;margin-bottom:6px}
-.rate-audience-tabs button{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;font-size:14px;font-weight:500;color:#505050;border-bottom:2px solid transparent;margin-bottom:-1px}
-.rate-audience-tabs button.current{color:var(--brand-navy);border-bottom-color:var(--brand-navy)}
-.rate-audience-tabs button span{font-size:11px;background:var(--brand-navy-soft);color:var(--brand-navy);border-radius:4px;padding:1px 6px}
-.rate-move{font-size:12px!important;min-height:32px!important;padding:0 10px!important;color:var(--brand-navy)}
+.rate-audience-tabs{display:inline-flex;gap:4px;padding:4px;background:#f0f3f7;border-radius:10px;margin-bottom:8px;max-width:100%}
+.rate-audience-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;font-size:14px;font-weight:550;color:#505050;border-radius:7px;white-space:nowrap;background:transparent;transition:background .15s,color .15s,box-shadow .15s}
+.rate-audience-tabs button:hover:not(.current){color:var(--brand-navy);background:#e6eaf1}
+.rate-audience-tabs button.current{background:#fff;color:var(--brand-navy);box-shadow:0 1px 3px #2a31751f,0 0 0 1px #dfe3ee}
+.rate-audience-tabs button svg{width:16px;height:16px;flex-shrink:0}
+.rate-audience-tabs button span{font-size:11px;min-width:22px;text-align:center;background:#dfe3ee;color:#505050;border-radius:20px;padding:1px 7px;font-weight:600}
+.rate-audience-tabs button.current span{background:var(--brand-navy);color:#fff}
+.rate-move{font-size:12px!important;min-height:32px!important;padding:0 10px!important;color:var(--brand-navy);border:1px solid #dce3e9!important}
+.rate-move:hover{background:var(--brand-navy-soft)}
 .record-heading .rate-move{margin-left:auto}
-@media(max-width:767px){.rate-audience-tabs button{padding:10px 10px;font-size:13px}.record-heading{flex-wrap:wrap}}
+@media(max-width:767px){.rate-audience-tabs{display:flex;width:100%}.rate-audience-tabs button{flex:1;padding:0 8px;font-size:13px;gap:6px}.rate-audience-tabs button svg{display:none}.record-heading{flex-wrap:wrap}}
