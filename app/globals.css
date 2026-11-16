@@ -514,3 +514,11 @@ h2,h3{color:var(--brand-navy)}
 .routine-item-actions [data-slot=button] svg{width:15px;height:15px}
 .is-readonly .training-delete,.is-readonly .routine-item-actions{display:none!important}
 @media(hover:none){.routine-item-actions{opacity:1}}
+/* Tarifas internas / para operadores */
+.rate-audience-tabs{display:flex;gap:6px;border-bottom:1px solid #dce3e9;margin-bottom:6px}
+.rate-audience-tabs button{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;font-size:14px;font-weight:500;color:#505050;border-bottom:2px solid transparent;margin-bottom:-1px}
+.rate-audience-tabs button.current{color:var(--brand-navy);border-bottom-color:var(--brand-navy)}
+.rate-audience-tabs button span{font-size:11px;background:var(--brand-navy-soft);color:var(--brand-navy);border-radius:4px;padding:1px 6px}
+.rate-move{font-size:12px!important;min-height:32px!important;padding:0 10px!important;color:var(--brand-navy)}
+.record-heading .rate-move{margin-left:auto}
+@media(max-width:767px){.rate-audience-tabs button{padding:10px 10px;font-size:13px}.record-heading{flex-wrap:wrap}}
