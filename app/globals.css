@@ -529,3 +529,6 @@ h2,h3{color:var(--brand-navy)}
 .refund-options{display:flex;flex-wrap:wrap;gap:8px}
 .refund-option{display:inline-flex;align-items:center;gap:9px;padding:9px 13px;border:1px solid #dce3e9;border-radius:7px;font-size:14px;cursor:pointer;background:#fff;color:#505050;font-weight:400!important}
 .refund-option.selected{border-color:#00adb6;background:#f4fbfb;color:var(--brand-navy)}
+.refund-options{flex-wrap:nowrap}
+.refund-option{white-space:nowrap}
+@media(max-width:767px){.refund-options{flex-wrap:wrap}}
