@@ -1,6 +1,6 @@
 import {database} from "@/db/raw";
 import {guard} from "@/lib/access-server";
-import {checkContract} from "@/lib/corporate-material";
+import {checkMaterial} from "@/lib/corporate-material";
 import {reply,sameOrigin,bucket,boundedForm,fileType} from "@/lib/corporate-server";
 export const dynamic="force-dynamic";
 type Row={id:string,name:string,size:number,type:string,uploaded_by:string,uploaded_at:string};
@@ -17,7 +17,7 @@ export async function POST(request:Request){
  try{
  let form:FormData;try{form=await boundedForm(request)}catch(e){return reply({error:e instanceof Error&&e.message==='BODY_TOO_LARGE'?"O ficheiro pode ter no máximo 10 MB.":"Não foi possível ler os dados enviados."},400);}
  const upload=form.get('file');if(!(upload instanceof File))return reply({error:"Seleciona um ficheiro."},400);
- const invalid=checkContract(upload);if(invalid)return reply({error:invalid},400);
+ const invalid=checkMaterial(upload);if(invalid)return reply({error:invalid},400);
  const mime=await fileType(upload);if(!mime)return reply({error:"O conteúdo do ficheiro não corresponde ao formato indicado. Seleciona um ficheiro válido."},400);
  const id=crypto.randomUUID();uploadedKey=`corporate-materials/${id}`;
  const name=upload.name.replace(/[\/\\\x00-\x1F\x7F]/g,'_').slice(0,200)||'documento';
