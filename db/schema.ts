@@ -82,7 +82,7 @@ export const operatorAttachments = sqliteTable("operator_attachments", {
 
 export const propertyKeysafeGeneral = sqliteTable("property_keysafe_general", {
  propertyId: text("property_id").primaryKey().references(()=>properties.id,{onDelete:"cascade"}),
- code: text("code").notNull(), updatedAt: text("updated_at").notNull()
+ code: text("code").notNull(), staff: text("staff").notNull().default(""), inside: text("inside").notNull().default(""), updatedAt: text("updated_at").notNull()
 });
 export const unitKeysafes = sqliteTable("unit_keysafes", {
  unitId: text("unit_id").primaryKey(), propertyId: text("property_id").notNull().references(()=>properties.id,{onDelete:"cascade"}),
