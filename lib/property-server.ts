@@ -10,7 +10,7 @@ export type ApplyResult={ok:true,property:Property&{updatedAt:string}}|{ok:false
  * Partilhado pela rota direta (nível "edit") e pela aprovação de pedidos de alteração.
  */
 export async function applyPropertySave(p:Property):Promise<ApplyResult>{
- const now=new Date().toISOString(),version=p.version+1,{partnerOperatorIds,keysafes,...core}=p,payload=JSON.stringify({...core,version});
+ const now=new Date().toISOString(),version=p.version+1,{partnerOperatorIds,keysafes,keysafeGeneral,...core}=p,payload=JSON.stringify({...core,version});
  const db=database();
  const query=p.version===0?db.prepare("INSERT INTO properties (id,name,payload,version,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(id) DO NOTHING").bind(p.id,p.name,payload,version,now):db.prepare("UPDATE properties SET name=?,payload=?,version=?,updated_at=? WHERE id=? AND version=?").bind(p.name,payload,version,now,p.id,p.version);
  if(p.version>0){ // tarifas e operadores usados em campanhas não podem desaparecer
@@ -27,6 +27,8 @@ export async function applyPropertySave(p:Property):Promise<ApplyResult>{
   // Só remove os operadores desmarcados (as ligações que ficam não são recriadas).
   db.prepare(`DELETE FROM operator_properties WHERE property_id=? AND operator_id NOT IN (SELECT jsonb_array_elements_text(?::jsonb)) AND ${guard}`).bind(p.id,JSON.stringify(partnerOperatorIds),p.id,version),
   db.prepare(`DELETE FROM unit_keysafes WHERE property_id=? AND ${guard}`).bind(p.id,p.id,version),
+  db.prepare(`DELETE FROM property_keysafe_general WHERE property_id=? AND ${guard}`).bind(p.id,p.id,version),
+  ...(keysafeGeneral.trim()?[db.prepare(`INSERT INTO property_keysafe_general (property_id,code,updated_at) SELECT ?,?,? WHERE ${guard}`).bind(p.id,keysafeGeneral.trim(),now,p.id,version)]:[]),
   ...Object.entries(keysafes).filter(([,c])=>c.trim()).map(([uid,c])=>db.prepare(`INSERT INTO unit_keysafes (unit_id,property_id,code,updated_at) SELECT ?,?,?,? WHERE ${guard}`).bind(uid,p.id,c.trim(),now,p.id,version)),
   ...partnerOperatorIds.map(oid=>db.prepare(`INSERT INTO operator_properties (operator_id,property_id) SELECT ?,? WHERE ${guard} ON CONFLICT (operator_id,property_id) DO NOTHING`).bind(oid,p.id,p.id,version)),
   ...p.rates.map(r=>db.prepare(`INSERT INTO property_rates (id,property_id,name,code) SELECT ?,?,?,? WHERE ${guard} ON CONFLICT(id) DO UPDATE SET name=excluded.name,code=excluded.code WHERE property_rates.property_id=excluded.property_id`).bind(r.id,p.id,r.name,r.code,p.id,version)),
