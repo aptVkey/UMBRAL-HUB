@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from 'react';
-import {Plug,LoaderCircle,RefreshCw,Save,Unplug,TriangleAlert,CheckCircle2,Sparkles} from 'lucide-react';
+import {MapPin,Plug,LoaderCircle,RefreshCw,Save,Unplug,TriangleAlert,CheckCircle2,Sparkles} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import {Skeleton} from '@/components/ui/skeleton';
@@ -27,7 +27,7 @@ export default function IntegrationsPanel(){
  const dup=Object.values(taken).some(n=>n>1);
  const linkOf=(propertyId:string)=>st?.links.find(l=>l.propertyId===propertyId);
 
- return <div className="settings-block integrations-block"><h4><Plug size={16}/> Integrações</h4><p>Liga a conta Google que gere os perfis dos alojamentos para importar reviews e publicar respostas aprovadas.</p>
+ return <div className="settings-block integrations-block"><h4><MapPin size={16}/> Google Business Profile</h4><p>Liga a conta Google que gere os perfis dos alojamentos para importar reviews e publicar respostas aprovadas. O hub só lê perfis e reviews e escreve respostas: nunca edita nem apaga conteúdo do perfil.</p>
   {error?<div className="error-banner" role="alert">{error}<Button variant="outline" onClick={load}>Tentar novamente</Button></div>
   :!st?<Skeleton className="h-16"/>
   :!st.google.configured?<p className="settings-note"><TriangleAlert size={15}/>A integração Google ainda não está configurada no servidor: faltam GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e INTEGRATIONS_KEY.</p>

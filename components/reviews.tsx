@@ -18,12 +18,12 @@ const emptyManual=():ManualReview=>({propertyId:'',platform:'Booking.com',author
 async function call(url:string,init:RequestInit):Promise<any>{const r=await fetch(url,{...init,headers:{'Content-Type':'application/json'}});const data:any=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||'Não foi possível concluir o pedido.');return data}
 
 export default function Reviews(){
- const [reviews,setReviews]=useState<Review[]>([]),[properties,setProperties]=useState<Prop[]>([]),[can,setCan]=useState<Can>({draft:false,approve:false}),[aiReady,setAiReady]=useState(false);
+ const [reviews,setReviews]=useState<Review[]>([]),[properties,setProperties]=useState<Prop[]>([]),[can,setCan]=useState<Can>({draft:false,approve:false}),[ai,setAi]=useState({ready:false,label:"",key:""});
  const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState('');
  const [status,setStatus]=useState<ReviewStatus|'open'|''>('open'),[property,setProperty]=useState(''),[platform,setPlatform]=useState(''),[query,setQuery]=useState('');
  const [texts,setTexts]=useState<Record<string,string>>({}),[busy,setBusy]=useState<Record<string,string>>({});
  const [manual,setManual]=useState<ManualReview|null>(null),[manualError,setManualError]=useState(''),[saving,setSaving]=useState(false),[removing,setRemoving]=useState<Review|null>(null);
- async function load(){setLoading(true);setLoadError('');try{const d=await call('/api/reviews',{method:'GET'});setReviews(d.reviews);setProperties(d.properties);setCan(d.can);setAiReady(d.aiReady)}catch(e){setLoadError(e instanceof Error?e.message:'Não foi possível carregar as reviews.')}finally{setLoading(false)}}
+ async function load(){setLoading(true);setLoadError('');try{const d=await call('/api/reviews',{method:'GET'});setReviews(d.reviews);setProperties(d.properties);setCan(d.can);setAi(d.ai)}catch(e){setLoadError(e instanceof Error?e.message:'Não foi possível carregar as reviews.')}finally{setLoading(false)}}
  useEffect(()=>{load()},[]);
  const put=(r:Review)=>{setReviews(l=>l.some(x=>x.id===r.id)?l.map(x=>x.id===r.id?r:x):[r,...l]);setTexts(t=>{const {[r.id]:_,...rest}=t;return rest})};
  const textOf=(r:Review)=>texts[r.id]??(r.status==='published'?r.reply:r.draft);
@@ -44,7 +44,7 @@ export default function Reviews(){
  return <div className="reviews-area">
  <div className="page-heading"><div><div className="eyebrow">REPUTAÇÃO ONLINE</div><h1>Reviews <span className="heading-counter">{reviews.length}</span></h1><p>Reviews dos hóspedes e respostas preparadas com IA, sempre aprovadas por uma pessoa.</p></div><div className="heading-actions">{can.sync&&<Button variant="outline" disabled={syncing} onClick={sync}>{syncing?<LoaderCircle className="spin"/>:<RefreshCw/>} Sincronizar Google</Button>}{can.draft&&<Button className="primary-btn" onClick={()=>{setManual(emptyManual());setManualError('')}}><Plus/> Adicionar review</Button>}</div></div>
  {!loading&&!loadError&&<div className="stats review-stats">{(['new','draft','approved','published'] as ReviewStatus[]).map(s=><button key={s} className={'stat review-stat '+(status===s?'on':'')} onClick={()=>setStatus(status===s?'open':s)}><div><span>{STATUS_LABEL[s]}</span><strong>{counts[s]}</strong></div></button>)}</div>}
- {!aiReady&&!loading&&!loadError&&can.draft&&<div className="cap-note" role="status"><TriangleAlert size={16}/><span>A geração de respostas com IA ainda não está ativa: falta configurar a <strong>ANTHROPIC_API_KEY</strong> no servidor. Podes adicionar reviews e escrever respostas à mão.</span></div>}
+ {!ai.ready&&!loading&&!loadError&&can.draft&&<div className="cap-note" role="status"><TriangleAlert size={16}/><span>A geração de respostas com IA ainda não está ativa: falta configurar a <strong>{ai.key}</strong> no servidor. Podes adicionar reviews e escrever respostas à mão.</span></div>}
  {loading?<div className="loading-list"><Skeleton className="h-40"/><Skeleton className="h-40"/></div>
  :loadError?<div className="error-banner" role="alert">{loadError}<Button variant="outline" onClick={load}>Tentar novamente</Button></div>
  :<section className="panel review-panel">
@@ -57,11 +57,11 @@ export default function Reviews(){
    return <article key={r.id} className={'review-card '+(neg?'negative':'')}>
     <header className="review-head"><div><strong>{r.propertyName}</strong><span>{r.platform} · {r.author||'Hóspede'} · {fmtDate(r.reviewDate)}</span></div><div className="review-meta">{r.rating!==null&&<span className={'review-rating '+(neg?'bad':'')}><Star size={13}/> {r.rating}/{ratingScale(r.platform)}</span>}<span className={'review-status s-'+r.status}>{STATUS_LABEL[r.status]}</span>{can.approve&&r.source==='manual'&&<Button variant="ghost" size="icon" aria-label="Apagar review" onClick={()=>setRemoving(r)}><Trash2/></Button>}</div></header>
     <p className="review-body">{r.body}</p>
-    <div className="review-reply"><label htmlFor={'reply-'+r.id}>{published?'Resposta publicada':'Resposta'}{r.draftedBy==='IA'&&!published&&<em> · gerada com IA, revê antes de aprovar</em>}</label>
+    <div className="review-reply"><label htmlFor={'reply-'+r.id}>{published?'Resposta publicada':'Resposta'}{r.draftedBy.startsWith('IA')&&!published&&<em> · gerada com {r.draftedBy.replace(/^IA ?·? ?/,'')||'IA'}, revê antes de aprovar</em>}</label>
      <Textarea id={'reply-'+r.id} value={text} readOnly={locked||r.status==='approved'} placeholder={can.draft?'Escreve a resposta ou gera um rascunho com IA.':'Ainda sem resposta.'} onChange={e=>setTexts(t=>({...t,[r.id]:e.target.value}))} rows={5}/>
      {r.status==='approved'&&<p className="review-note"><ShieldCheck size={14}/> Aprovada por {r.approvedBy}{r.approvedAt?` em ${fmtDate(r.approvedAt)}`:''}. {r.source==='google'?'Pronta a publicar no Google.':'Copia e publica na plataforma.'}</p>}
      <div className="review-actions">
-      {!published&&r.status!=='approved'&&can.draft&&<><Button variant="outline" disabled={!!b||!aiReady} onClick={()=>draftAi(r)}>{b==='ai'?<LoaderCircle className="spin"/>:<Sparkles/>} {r.draft?'Gerar de novo':'Gerar resposta com IA'}</Button>
+      {!published&&r.status!=='approved'&&can.draft&&<><Button variant="outline" disabled={!!b||!ai.ready} title={ai.ready?`Rascunho gerado com ${ai.label}`:undefined} onClick={()=>draftAi(r)}>{b==='ai'?<LoaderCircle className="spin"/>:<Sparkles/>} {r.draft?'Gerar de novo':'Gerar resposta com IA'}</Button>
        <Button variant="outline" disabled={!!b||text===r.draft} onClick={()=>act(r,'save','Rascunho guardado.',{draft:text})}>{b==='save'?<LoaderCircle className="spin"/>:<Save/>} Guardar rascunho</Button>
        {can.approve&&<Button className="primary-btn" disabled={!!b||!text.trim()} onClick={()=>act(r,'approve','Resposta aprovada.',{draft:text})}>{b==='approve'?<LoaderCircle className="spin"/>:<Check/>} Aprovar</Button>}</>}
       {r.status==='approved'&&<>{r.source!=='google'&&<Button variant="outline" onClick={()=>copy(r.draft)}><Copy/> Copiar resposta</Button>}{can.approve&&<><Button variant="outline" disabled={!!b} onClick={()=>act(r,'reopen','Resposta reaberta para edição.')}><RotateCcw/> Editar</Button><Button className="primary-btn" disabled={!!b} onClick={()=>act(r,'published',r.source==='google'?'Resposta publicada no Google.':'Marcada como respondida.')}>{b==='published'?<LoaderCircle className="spin"/>:<Send/>} {r.source==='google'?'Publicar no Google':'Marcar como publicada'}</Button></>}</>}

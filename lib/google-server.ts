@@ -57,7 +57,15 @@ async function accessToken(){
  const t=await tokenRequest({refresh_token,grant_type:"refresh_token"});
  cached={token:t.access_token,until:Date.now()+t.expires_in*1000};return t.access_token;
 }
+/** O hub só lê perfis/reviews e responde a reviews. Nunca edita nem apaga conteúdo do perfil (nem apaga respostas). */
+function onlyReadOrReply(url:string,init:RequestInit){
+ const m=(init.method||"GET").toUpperCase();
+ if(m==="GET")return;
+ if(m==="PUT"&&/^https:\/\/mybusiness\.googleapis\.com\/v4\/accounts\/[^/]+\/locations\/[^/]+\/reviews\/[^/]+\/reply$/.test(url))return;
+ throw new GoogleError("Operação não permitida: o hub só lê e responde a reviews.",405);
+}
 async function api<T>(url:string,init:RequestInit={}):Promise<T>{
+ onlyReadOrReply(url,init);
  const r=await fetch(url,{...init,headers:{...init.headers,Authorization:`Bearer ${await accessToken()}`,"Content-Type":"application/json"}});
  const data=await r.json().catch(()=>({})) as any;
  if(!r.ok){

@@ -1,9 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
+import {generateText} from "./ai";
 import {policyGroups,SEASONS,policyKey,type Property} from "./property";
 
 /** Campos de regras que nunca seguem para a IA: podem conter códigos de acesso. */
 const PRIVATE_POLICIES=new Set(["arrival"]);
-const MODEL="claude-opus-5-5";
 
 const SYSTEM=`És o responsável pelas respostas públicas às reviews de hóspedes do Grupo Umbral, um grupo de alojamentos em Portugal (hotéis, guesthouses e apartamentos).
 
@@ -38,22 +37,10 @@ export function propertyContext(p:Property):string{
 }
 
 export type DraftInput={property:Property;platform:string;author:string;rating:number|null;scale:number;body:string};
-export class AiUnavailable extends Error{}
 
+/** Rascunho de resposta. O fornecedor das Reviews é escolhido em lib/ai.ts (Gemini por omissão). */
 export async function draftReply(i:DraftInput):Promise<string>{
- if(!process.env.ANTHROPIC_API_KEY)throw new AiUnavailable("A IA ainda não está configurada no servidor (falta a ANTHROPIC_API_KEY).");
- const client=new Anthropic();
  const firstName=i.author.trim().split(/\s+/)[0]||"";
  const user=`Informação do alojamento:\n${propertyContext(i.property)}\n\nPlataforma: ${i.platform}\nPrimeiro nome do hóspede: ${firstName||"(desconhecido)"}\nPontuação: ${i.rating===null?"sem pontuação":`${i.rating}/${i.scale}`}\n\n<review>\n${i.body}\n</review>`;
- const response=await client.beta.messages.create({
-  model:MODEL,max_tokens:16000,
-  betas:["server-side-fallback-2026-07-01"],fallbacks:"default",
-  output_config:{effort:"medium"},
-  system:[{type:"text",text:SYSTEM,cache_control:{type:"ephemeral"}}],
-  messages:[{role:"user",content:user}]
- });
- if(response.stop_reason==="refusal")throw new Error("A IA não conseguiu gerar uma resposta para esta review. Escreve-a manualmente.");
- const text=response.content.flatMap(b=>b.type==="text"?[b.text]:[]).join("").trim();
- if(!text)throw new Error("A IA devolveu uma resposta vazia. Tenta novamente.");
- return text;
+ return generateText("reviews",{system:SYSTEM,user});
 }

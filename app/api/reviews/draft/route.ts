@@ -1,10 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
 import {database} from "@/db/raw";
 import {guard} from "@/lib/access-server";
 import type {Property} from "@/lib/property";
 import {ratingScale} from "@/lib/review";
 import {getReview,canSeeProperty} from "@/lib/review-server";
-import {draftReply,AiUnavailable} from "@/lib/review-ai";
+import {draftReply} from "@/lib/review-ai";
+import {AiError,aiLabel} from "@/lib/ai";
 import {z} from "zod";
 export const dynamic="force-dynamic";
 export const maxDuration=60;
@@ -26,13 +26,11 @@ export async function POST(request:Request){
   if(!row)return reply({error:"O alojamento já não existe."},404);
   const text=await draftReply({property:JSON.parse(row.payload) as Property,platform:cur.platform,author:cur.author,rating:cur.rating,scale:ratingScale(cur.platform),body:cur.body});
   const now=new Date().toISOString();
-  const r=await database().prepare("UPDATE reviews SET draft=?,status='draft',drafted_by='IA',approved_by='',approved_at=NULL,version=version+1,updated_at=? WHERE id=? AND version=?").bind(text,now,cur.id,cur.version).run();
+  const r=await database().prepare("UPDATE reviews SET draft=?,status='draft',drafted_by=?,approved_by='',approved_at=NULL,version=version+1,updated_at=? WHERE id=? AND version=?").bind(text,`IA · ${aiLabel("reviews")}`,now,cur.id,cur.version).run();
   if(!r.meta.changes)return reply({error:"Esta review foi alterada noutra janela. Recarrega a lista."},409);
   return reply({review:await getReview(cur.id)});
  }catch(e){
-  if(e instanceof AiUnavailable)return reply({error:e.message},503);
-  if(e instanceof Anthropic.RateLimitError)return reply({error:"A IA está com muitos pedidos. Tenta daqui a um minuto."},429);
-  if(e instanceof Anthropic.APIError){console.error("Review draft AI",e.status,e.message);return reply({error:"A IA não respondeu. Tenta novamente."},502)}
+  if(e instanceof AiError)return reply({error:e.message},e.status);
   console.error("Review draft",e);return reply({error:e instanceof Error?e.message:"Não foi possível gerar a resposta."},500);
  }
 }
