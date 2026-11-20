@@ -16,7 +16,7 @@ export async function GET(request:Request){
    db.prepare("SELECT property_id,external_ref,label,last_sync_at,last_error FROM property_integrations WHERE provider=?").bind(GOOGLE_ID).all<{property_id:string,external_ref:string,label:string,last_sync_at:string|null,last_error:string}>(),
    db.prepare("SELECT id,name FROM properties ORDER BY lower(name)").all<{id:string,name:string}>()]);
   return reply({google:{configured:googleConfigured(),connected:!!conn,account:conn?.account_label||"",connectedBy:conn?.connected_by||"",connectedAt:conn?.connected_at||null},
-   links:links.map(l=>({propertyId:l.property_id,externalRef:l.external_ref,label:l.label,lastSyncAt:l.last_sync_at,lastError:l.last_error})),properties,ai:aiStatus()});
+   links:links.map(l=>({propertyId:l.property_id,externalRef:l.external_ref,label:l.label,lastSyncAt:l.last_sync_at,lastError:l.last_error})),properties,ai:await aiStatus()});
  }catch(e){console.error("Load integrations",e);return reply({error:"Não foi possível carregar as integrações."},503)}
 }
 

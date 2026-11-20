@@ -18,7 +18,7 @@ const emptyManual=():ManualReview=>({propertyId:'',platform:'Booking.com',author
 async function call(url:string,init:RequestInit):Promise<any>{const r=await fetch(url,{...init,headers:{'Content-Type':'application/json'}});const data:any=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||'Não foi possível concluir o pedido.');return data}
 
 export default function Reviews(){
- const [reviews,setReviews]=useState<Review[]>([]),[properties,setProperties]=useState<Prop[]>([]),[can,setCan]=useState<Can>({draft:false,approve:false}),[ai,setAi]=useState({ready:false,label:"",key:""});
+ const [reviews,setReviews]=useState<Review[]>([]),[properties,setProperties]=useState<Prop[]>([]),[can,setCan]=useState<Can>({draft:false,approve:false}),[ai,setAi]=useState({ready:false,label:""});
  const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState('');
  const [status,setStatus]=useState<ReviewStatus|'open'|''>('open'),[property,setProperty]=useState(''),[platform,setPlatform]=useState(''),[query,setQuery]=useState('');
  const [texts,setTexts]=useState<Record<string,string>>({}),[busy,setBusy]=useState<Record<string,string>>({});
@@ -44,7 +44,7 @@ export default function Reviews(){
  return <div className="reviews-area">
  <div className="page-heading"><div><div className="eyebrow">REPUTAÇÃO ONLINE</div><h1>Reviews <span className="heading-counter">{reviews.length}</span></h1><p>Reviews dos hóspedes e respostas preparadas com IA, sempre aprovadas por uma pessoa.</p></div><div className="heading-actions">{can.sync&&<Button variant="outline" disabled={syncing} onClick={sync}>{syncing?<LoaderCircle className="spin"/>:<RefreshCw/>} Sincronizar Google</Button>}{can.draft&&<Button className="primary-btn" onClick={()=>{setManual(emptyManual());setManualError('')}}><Plus/> Adicionar review</Button>}</div></div>
  {!loading&&!loadError&&<div className="stats review-stats">{(['new','draft','approved','published'] as ReviewStatus[]).map(s=><button key={s} className={'stat review-stat '+(status===s?'on':'')} onClick={()=>setStatus(status===s?'open':s)}><div><span>{STATUS_LABEL[s]}</span><strong>{counts[s]}</strong></div></button>)}</div>}
- {!ai.ready&&!loading&&!loadError&&can.draft&&<div className="cap-note" role="status"><TriangleAlert size={16}/><span>A geração de respostas com IA ainda não está ativa: falta configurar a <strong>{ai.key}</strong> no servidor. Podes adicionar reviews e escrever respostas à mão.</span></div>}
+ {!ai.ready&&!loading&&!loadError&&can.draft&&<div className="cap-note" role="status"><TriangleAlert size={16}/><span>A geração de respostas com IA ainda não está ativa: um administrador tem de registar a chave do <strong>{ai.label||'fornecedor de IA'}</strong> em Integrações. Podes adicionar reviews e escrever respostas à mão.</span></div>}
  {loading?<div className="loading-list"><Skeleton className="h-40"/><Skeleton className="h-40"/></div>
  :loadError?<div className="error-banner" role="alert">{loadError}<Button variant="outline" onClick={load}>Tentar novamente</Button></div>
  :<section className="panel review-panel">

@@ -3,7 +3,7 @@ import {guard} from "@/lib/access-server";
 import {newId} from "@/lib/property";
 import {manualReviewSchema,reviewActionSchema} from "@/lib/review";
 import {listReviews,getReview,canSeeProperty} from "@/lib/review-server";
-import {aiReady,aiLabel,aiKeyName} from "@/lib/ai";
+import {aiReady,aiLabel} from "@/lib/ai";
 import {publishGoogleReply,GoogleError,connection,googleConfigured} from "@/lib/google-server";
 export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
@@ -17,7 +17,7 @@ export async function GET(request:Request){
   const a=g.access,level=a.areas.reviews;
   const {results}=await database().prepare("SELECT id,name FROM properties ORDER BY lower(name)").all<{id:string,name:string}>();
   const conn=googleConfigured()?await connection():null;
-  return reply({reviews:await listReviews(a),properties:results.filter(p=>canSeeProperty(a,p.id)),can:{draft:level==="propose"||level==="edit",approve:level==="edit",sync:!!conn&&(a.isAdmin||level==="edit")},ai:{ready:aiReady("reviews"),label:aiLabel("reviews"),key:aiKeyName("reviews")}});
+  return reply({reviews:await listReviews(a),properties:results.filter(p=>canSeeProperty(a,p.id)),can:{draft:level==="propose"||level==="edit",approve:level==="edit",sync:!!conn&&(a.isAdmin||level==="edit")},ai:{ready:await aiReady("reviews"),label:aiLabel("reviews")}});
  }catch(e){console.error("Load reviews",e);return reply({error:"Não foi possível carregar as reviews. Tenta novamente."},503)}
 }
 
