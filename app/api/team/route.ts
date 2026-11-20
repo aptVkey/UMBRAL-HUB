@@ -11,7 +11,7 @@ export async function GET(request:Request){
  try{const a=await getAccess(request);if(!a.isAdmin)return deny(NOT_ADMIN);const db=database();
  const [m,l]=await db.batch([db.prepare("SELECT id,payload,version,updated_at FROM team_members ORDER BY lower(name)"),db.prepare("SELECT member_id,property_id FROM team_member_properties")]);
  const links=new Map<string,string[]>();for(const r of l.results as {member_id:string,property_id:string}[])links.set(r.member_id,[...(links.get(r.member_id)||[]),r.property_id]);
- return reply({members:(m.results as Row[]).map(r=>({...JSON.parse(r.payload),id:r.id,propertyIds:links.get(r.id)||[],version:r.version,updatedAt:r.updated_at}) as SavedMember),implicit:a.implicit,you:{email:a.email,name:a.name}});}
+ return reply({members:(m.results as Row[]).map(r=>({toolCategories:[],...JSON.parse(r.payload),id:r.id,propertyIds:links.get(r.id)||[],version:r.version,updatedAt:r.updated_at}) as SavedMember),implicit:a.implicit,you:{email:a.email,name:a.name}});}
  catch(e){console.error("Load team",e);return reply({error:"Não foi possível carregar a equipa. Tenta novamente."},503);}
 }
 const otherAdmins=async(excludeId:string,excludeEmail:string)=>(await database().prepare("SELECT COUNT(*) AS n FROM team_members WHERE role='Administrador' AND status='Ativo' AND id<>? AND email<>?").bind(excludeId,excludeEmail).first<{n:number}>())?.n??0;
