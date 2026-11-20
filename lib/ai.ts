@@ -147,6 +147,7 @@ async function gemini(req:AiRequest,apiKey:string):Promise<string>{
  if(!r.ok){
   const msg=d.error?.message||"",status=d.error?.status||"";
   console.error("Gemini",r.status,status,msg);
+  if(r.status===402||/prepayment|credits are depleted|billing/i.test(msg))throw new AiError("O projeto Google desta chave do Gemini ficou sem saldo. Adiciona créditos em aistudio.google.com ou regista uma chave de um projeto sem faturação (plano gratuito).",402);
   if(r.status===429)throw new AiError("A IA atingiu o limite de pedidos do plano. Tenta daqui a um minuto.",429);
   if(/API_KEY_INVALID|API key not valid/i.test(msg)||r.status===401||r.status===403)throw new AiError("A chave do Gemini deixou de ser válida. Regista uma nova em Integrações.",503);
   if(r.status===404)throw new AiError(`O modelo Gemini "${GEMINI_MODEL()}" não existe. Ajusta a GEMINI_MODEL.`,503);
