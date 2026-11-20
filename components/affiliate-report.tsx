@@ -11,7 +11,7 @@ export default function AffiliateReport({token}:{token:string}){
  const load=useCallback(async()=>{setLoading(true);setError('');try{const r=await fetch(`/api/afiliado?token=${encodeURIComponent(token)}`,{cache:'no-store'});const data:any=await r.json();if(!r.ok)throw Error(data.error);setReport(data)}catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar os resultados.')}finally{setLoading(false)}},[token]);
  useEffect(()=>{load()},[load]);
  return <div className="public-report">
-  <header className="public-masthead"><img className="brand-logo" src="/umbral-logo-white.png" alt="Umbral" width="2048" height="402"/></header>
+  <header className="public-masthead"><img className="brand-logo" src="/umbral-logo-white.png" alt="Umbral" width="640" height="125"/></header>
   <main className="public-page">
    {loading?<div className="loading-list" aria-label="A carregar resultados"><Skeleton className="h-24"/><Skeleton className="h-64"/></div>
    :error||!report?<div className="panel public-error"><LinkIcon size={26}/><h1>Link indisponível</h1><p>{error}</p><Button variant="outline" onClick={load}>{loading?<LoaderCircle className="spin"/>:null} Tentar novamente</Button></div>

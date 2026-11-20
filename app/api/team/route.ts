@@ -39,8 +39,9 @@ export async function POST(request:Request){
   if(id)await updateAuthUser(id,{...(password?{password}:{}),...(previous!.email!==m.email?{email:m.email}:{})});
   else{if(!password)return reply({error:"Esta conta ainda não tem palavra-passe. Define uma palavra-passe para guardar.",issues:[{path:["password"],message:"Define uma palavra-passe."}]},400);const u=await createAuthUser(m.email,password,m.name);if(u.created)createdEmail=m.email}
  }
+ // Palavra-passe definida por um administrador: as sessões abertas dessa pessoa terminam.
  const {propertyIds,...core}=m,payload=JSON.stringify({...core,version});
- const first=isNew?db.prepare("INSERT INTO team_members (id,email,name,role,status,payload,version,updated_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING").bind(m.id,m.email,m.name,m.role,m.status,payload,version,now):db.prepare("UPDATE team_members SET email=?,name=?,role=?,status=?,payload=?,version=?,updated_at=? WHERE id=? AND version=?").bind(m.email,m.name,m.role,m.status,payload,version,now,m.id,m.version);
+ const first=isNew?db.prepare("INSERT INTO team_members (id,email,name,role,status,payload,version,updated_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING").bind(m.id,m.email,m.name,m.role,m.status,payload,version,now):db.prepare("UPDATE team_members SET email=?,name=?,role=?,status=?,payload=?,version=?,updated_at=?,session_epoch=GREATEST(session_epoch,?) WHERE id=? AND version=?").bind(m.email,m.name,m.role,m.status,payload,version,now,password?Math.floor(Date.now()/1000):0,m.id,m.version);
  const guardSql="EXISTS (SELECT 1 FROM team_members WHERE id=? AND version=?)";
  let saved;try{saved=await db.batch([first,db.prepare(`DELETE FROM team_member_properties WHERE member_id=? AND ${guardSql}`).bind(m.id,m.id,version),...propertyIds.map(id=>db.prepare(`INSERT INTO team_member_properties (member_id,property_id) SELECT ?,? WHERE ${guardSql}`).bind(m.id,id,m.id,version))])}
  catch(e){if(createdEmail){try{await deleteAuthUser(createdEmail)}catch{}}if(String(e).includes("email"))return reply({error:"Já existe uma conta com este email.",issues:[{path:["email"],message:"Este email já está registado."}]},409);throw e}

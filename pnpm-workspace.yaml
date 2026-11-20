@@ -19,3 +19,6 @@ verifyDepsBeforeRun: false
 optimisticRepeatInstall: false
 overrides:
   miniflare>sharp: 0.35.4
+  # Correções de segurança em ferramentas de build (vulnerabilidades conhecidas nas versões anteriores).
+  browserslist: ^4.28.7
+  source-map-js: ^1.2.2

@@ -16,22 +16,25 @@ import {Empty,EmptyHeader,EmptyTitle,EmptyDescription,EmptyMedia} from '@/compon
 import {Skeleton} from '@/components/ui/skeleton';
 import {Toaster} from '@/components/ui/sonner';
 import {toast} from 'sonner';
-import Corporates from '@/components/corporates';
-import Partnerships from '@/components/partnerships';
-import Campaigns from '@/components/campaigns';
-import Tools from '@/components/tools';
-import Reviews from '@/components/reviews';
-import Integrations from '@/components/integrations';
-import Capacity from '@/components/capacity';
-import Login from '@/components/login';
-import Operators from '@/components/operators';
-import PropertyUnits from '@/components/property-units';
-import KeysafesPanel from '@/components/keysafes-panel';
 import type {SlimOperator} from '@/lib/operator';
-import SettingsDialog from '@/components/settings-dialog';
-import ChangeRequestsPanel from '@/components/change-requests-panel';
 import {AREAS,type Me} from '@/lib/access';
-import TrainingArea from '@/components/training';
+import dynamic from 'next/dynamic';
+/** Cada área só é descarregada quando é aberta: o arranque fica mais leve. */
+const AreaLoading=()=><div className="area-loading" role="status" aria-label="A carregar"><Skeleton className="h-10 w-64"/><Skeleton className="h-28"/><Skeleton className="h-64"/></div>;
+const Corporates=dynamic(()=>import('@/components/corporates'),{loading:AreaLoading});
+const Partnerships=dynamic(()=>import('@/components/partnerships'),{loading:AreaLoading});
+const Campaigns=dynamic(()=>import('@/components/campaigns'),{loading:AreaLoading});
+const Tools=dynamic(()=>import('@/components/tools'),{loading:AreaLoading});
+const Reviews=dynamic(()=>import('@/components/reviews'),{loading:AreaLoading});
+const Integrations=dynamic(()=>import('@/components/integrations'),{loading:AreaLoading});
+const Capacity=dynamic(()=>import('@/components/capacity'),{loading:AreaLoading});
+const Login=dynamic(()=>import('@/components/login'),{loading:AreaLoading});
+const Operators=dynamic(()=>import('@/components/operators'),{loading:AreaLoading});
+const SettingsDialog=dynamic(()=>import('@/components/settings-dialog'));
+const ChangeRequestsPanel=dynamic(()=>import('@/components/change-requests-panel'));
+const TrainingArea=dynamic(()=>import('@/components/training'),{loading:AreaLoading});
+const PropertyUnits=dynamic(()=>import('@/components/property-units'),{loading:AreaLoading});
+const KeysafesPanel=dynamic(()=>import('@/components/keysafes-panel'),{loading:AreaLoading});
 import {Field,Heading} from '@/components/hub-fields';
 import {preparePhoto} from '@/lib/image-optimize';
 import {inParallel} from '@/lib/parallel';
@@ -46,7 +49,7 @@ const sections=[{id:'general',label:'Geral',icon:Hotel},{id:'rooms',label:'Tipol
 const countRooms=(p:Property)=>p.rooms.reduce((n,r)=>n+(Number(r.units)||0),0);
 const countBeds=(p:Property)=>p.rooms.reduce((n,r)=>n+roomBeds(r).beds*(Number(r.units)||0),0);
 const plural=(n:number,one:string,many:string)=>`${n} ${n===1?one:many}`;
-function Navigation({area,items,onNavigate,onOpenSettings}:{area:string,items:typeof areas,onNavigate:(s:string)=>void,onOpenSettings:()=>void}){const {setOpenMobile}=useSidebar();return <Sidebar className="side"><SidebarHeader className="brand"><div className="brand-logo-block"><img className="brand-logo" src="/umbral-logo-white.png" alt="Umbral" width="2048" height="402" /></div><p><span>HUB</span> Centro de informação</p></SidebarHeader><SidebarContent className="nav-content"><div className="nav-label">ESPAÇO DE TRABALHO</div><SidebarMenu>{items.map(a=><SidebarMenuItem key={a.name}><SidebarMenuButton isActive={area===a.name} onClick={()=>{onNavigate(a.name);setOpenMobile(false)}} className="nav-item"><a.icon/><span>{a.name}</span>{area===a.name&&<ChevronRight className="nav-chevron"/>}</SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarContent><SidebarFooter className="side-footer"><button type="button" className="side-footer-btn" onClick={onOpenSettings} aria-label="Abrir definições"><img className="workspace-mark" src="/umbral-icon.png" alt="" width="36" height="36"/><div><strong>Grupo Umbral</strong><span>Base de conhecimento</span></div><Settings2 className="side-footer-gear" size={18}/></button></SidebarFooter></Sidebar>}
+function Navigation({area,items,onNavigate,onOpenSettings}:{area:string,items:typeof areas,onNavigate:(s:string)=>void,onOpenSettings:()=>void}){const {setOpenMobile}=useSidebar();return <Sidebar className="side"><SidebarHeader className="brand"><div className="brand-logo-block"><img className="brand-logo" src="/umbral-logo-white.png" alt="Umbral" width="640" height="125" /></div><p><span>HUB</span> Centro de informação</p></SidebarHeader><SidebarContent className="nav-content"><div className="nav-label">ESPAÇO DE TRABALHO</div><SidebarMenu>{items.map(a=><SidebarMenuItem key={a.name}><SidebarMenuButton isActive={area===a.name} onClick={()=>{onNavigate(a.name);setOpenMobile(false)}} className="nav-item"><a.icon/><span>{a.name}</span>{area===a.name&&<ChevronRight className="nav-chevron"/>}</SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarContent><SidebarFooter className="side-footer"><button type="button" className="side-footer-btn" onClick={onOpenSettings} aria-label="Abrir definições"><img className="workspace-mark" src="/umbral-icon.png" alt="" width="36" height="36"/><div><strong>Grupo Umbral</strong><span>Base de conhecimento</span></div><Settings2 className="side-footer-gear" size={18}/></button></SidebarFooter></Sidebar>}
 
 export default function Home(){
  const [area,setArea]=useState('Alojamentos'),[properties,setProperties]=useState<SavedProperty[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState(''),[propFilter,setPropFilter]=useState('');

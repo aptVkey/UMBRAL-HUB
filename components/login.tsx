@@ -11,7 +11,7 @@ export default function Login({setupRequired}:{setupRequired:boolean}){
   setBusy(true);try{const r=await fetch(setupRequired?'/api/auth/setup':'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(setupRequired?{name,email,password}:{email,password})});const data=await r.json().catch(()=>({})) as {error?:string};if(!r.ok)throw Error(data.error||'Não foi possível iniciar sessão.');window.location.reload()}
   catch(err){setError(err instanceof Error?err.message:'Não foi possível iniciar sessão.');setBusy(false)}}
  return <div className="login-page">
-  <header className="public-masthead"><img className="brand-logo" src="/umbral-logo-white.png" alt="Umbral" width="2048" height="402"/></header>
+  <header className="public-masthead"><img className="brand-logo" src="/umbral-logo-white.png" alt="Umbral" width="640" height="125"/></header>
   <main className="login-main"><form className="panel login-card" onSubmit={submit} noValidate>
    <span className="login-icon">{setupRequired?<ShieldCheck size={26}/>:<LogIn size={26}/>}</span>
    <div className="eyebrow">{setupRequired?'PRIMEIRO ACESSO':'CENTRO DE INFORMAÇÃO'}</div>

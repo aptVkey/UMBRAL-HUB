@@ -1,23 +1,25 @@
 import {database} from "@/db/raw";
 import {allAreas,atLeast,type AreaKey,type AreaMap,type Member,type Role} from "./access";
-import {sessionEmail} from "./session";
+import {sessionInfo} from "./session";
 export type Access={email:string;name:string;role:Role|null;isAdmin:boolean;implicit:boolean;noAccess:boolean;hasIdentity:boolean;authenticated:boolean;setupRequired:boolean;areas:AreaMap;propertyIds:string[]|null;toolCategories:string[]};
 const json=(body:unknown,status:number)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 export const deny=(message="Não tens permissão para esta ação.")=>json({error:message},403);
 const none=allAreas("none");
 /** A identidade vem da sessão da app (login); as permissões vêm sempre da base de dados. */
 export async function getAccess(request:Request):Promise<Access>{
- const email=await sessionEmail(request),db=database();
+ const session=await sessionInfo(request),email=session?.email||"",db=database();
  /** Uma só ida à base de dados (transação) em vez de três em série: este passo corre em todos os pedidos à API. */
  const [totalRes,memberRes,scopeRes]=await db.batch([
   db.prepare("SELECT COUNT(*) AS n FROM team_members"),
-  db.prepare("SELECT id,role,status,payload FROM team_members WHERE email=?").bind(email),
+  db.prepare("SELECT id,role,status,payload,session_epoch FROM team_members WHERE email=?").bind(email),
   db.prepare("SELECT property_id FROM team_member_properties WHERE member_id=(SELECT id FROM team_members WHERE email=?)").bind(email)]);
  const total=(totalRes.results[0] as {n:number}|undefined)?.n??0;
  const base={email,name:email,hasIdentity:!!email,authenticated:!!email,setupRequired:total===0};
  const blocked:Access={...base,role:null,isAdmin:false,implicit:false,noAccess:true,areas:none,propertyIds:[],toolCategories:[]};
  if(!email)return blocked;
- const row=memberRes.results[0] as {id:string,role:Role,status:string,payload:string}|undefined;
+ const row=memberRes.results[0] as {id:string,role:Role,status:string,payload:string,session_epoch:number|string}|undefined;
+ // Sessão emitida antes da última mudança de palavra-passe: deixa de valer (volta ao login).
+ if(row&&session!.issuedAt<Number(row.session_epoch||0))return {...blocked,email:"",name:"",hasIdentity:false,authenticated:false};
  if(!row||row.status!=="Ativo")return blocked;
  const m=JSON.parse(row.payload) as Member;
  if(row.role==="Administrador")return {...base,name:m.name||email,role:row.role,isAdmin:true,implicit:false,noAccess:false,areas:allAreas("edit"),propertyIds:null,toolCategories:[]};

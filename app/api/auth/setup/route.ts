@@ -21,5 +21,5 @@ export async function POST(request:Request){
  const r=await db.prepare("INSERT INTO team_members (id,email,name,role,status,payload,version,updated_at) SELECT ?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM team_members)").bind(m.id,email,name,m.role,m.status,JSON.stringify(core),1,now).run();
  if(!r.meta.changes){if(createdEmail)await deleteAuthUser(createdEmail);return reply({error:"O primeiro acesso já foi configurado. Inicia sessão."},409)}
  return reply({ok:true},201,{"Set-Cookie":sessionCookie(request,await createSession(email))});
- }catch(e){if(createdEmail){try{await deleteAuthUser(createdEmail)}catch{}}console.error("Setup",e);return reply({error:e instanceof Error?e.message:"Não foi possível criar a conta."},503);}
+ }catch(e){if(createdEmail){try{await deleteAuthUser(createdEmail)}catch{}}console.error("Setup",e);return reply({error:"Não foi possível criar a conta. Tenta novamente."},503);}
 }
