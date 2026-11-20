@@ -5,11 +5,14 @@ const long=z.string().max(5000,"Máximo de 5.000 caracteres.");
 const email=short.refine(v=>!v||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),"Introduz um email válido.");
 const url=z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://.");
 const date=z.string().refine(v=>!v||(/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v),"Data inválida.");
+export const contactPersonSchema=z.object({name:short,role:short,email,phone:short});
+export type ContactPerson=z.infer<typeof contactPersonSchema>;
 export const OPERATOR_TYPES=["OTA","Operador turístico","Agência de viagens","Wholesaler","Canal direto","Corporate","Outro"] as const;
 export const operatorSchema=z.object({
  id:z.string().uuid(),version:z.number().int().min(0),name:short.trim().min(1,"Preenche o nome do operador."),legalName:short,taxId:short,
  type:z.enum(OPERATOR_TYPES),status:z.enum(["Rascunho","Ativo","Inativo"]),website:url,country:short,city:short,
  contactName:short,contactRole:short,contactEmail:email,contactPhone:short,reservationsEmail:email,financeEmail:email,extranetUrl:url,
+ address:z.string().max(300,"Máximo de 300 caracteres.").default(""),offersEmail:email.default(""),stopSalesEmail:email.default(""),backofficeEmail:email.default(""),contacts:z.array(contactPersonSchema).max(30,"Máximo de 30 contactos.").default([]),
  commissionType:z.enum(["percent","fixed"]),commission:z.string().max(15).refine(v=>v===""||/^\d+(\.\d{1,2})?$/.test(v),"Introduz um valor válido (até duas casas decimais)."),
  contractStart:date,contractEnd:date,paymentTerms:long,cancellationRules:long,bookingRules:long,notes:long,
  propertyIds:z.array(z.string().uuid()).max(500),
@@ -23,7 +26,7 @@ export const operatorSchema=z.object({
 export type Operator=z.infer<typeof operatorSchema>;
 export type SavedOperator=Operator&{updatedAt:string};
 export type SlimOperator={id:string;name:string;type:string;status:string;propertyIds:string[]};
-export function newOperator():Operator{return {id:newId(),version:0,name:"",legalName:"",taxId:"",type:"OTA",status:"Rascunho",website:"",country:"",city:"",contactName:"",contactRole:"",contactEmail:"",contactPhone:"",reservationsEmail:"",financeEmail:"",extranetUrl:"",commissionType:"percent",commission:"",contractStart:"",contractEnd:"",paymentTerms:"",cancellationRules:"",bookingRules:"",notes:"",propertyIds:[],propertyCodes:{}};}
+export function newOperator():Operator{return {id:newId(),version:0,name:"",legalName:"",taxId:"",type:"OTA",status:"Rascunho",website:"",country:"",city:"",contactName:"",contactRole:"",contactEmail:"",contactPhone:"",reservationsEmail:"",financeEmail:"",extranetUrl:"",address:"",offersEmail:"",stopSalesEmail:"",backofficeEmail:"",contacts:[],commissionType:"percent",commission:"",contractStart:"",contractEnd:"",paymentTerms:"",cancellationRules:"",bookingRules:"",notes:"",propertyIds:[],propertyCodes:{}};}
 /** Registos migrados ou antigos podem não ter todos os campos. */
 export const withDefaults=(o:Partial<Operator>&{id:string}):Operator=>({...newOperator(),...o});
 export const commissionLabel=(o:Pick<Operator,"commission"|"commissionType">)=>o.commission===""?"Por definir":`${Number(o.commission).toLocaleString("pt-PT",{maximumFractionDigits:2})}${o.commissionType==="percent"?"%":" €"}`;
