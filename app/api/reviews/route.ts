@@ -3,6 +3,7 @@ import {guard} from "@/lib/access-server";
 import {newId} from "@/lib/property";
 import {manualReviewSchema,reviewActionSchema} from "@/lib/review";
 import {listReviews,getReview,canSeeProperty} from "@/lib/review-server";
+import {publishGoogleReply,GoogleError,connection,googleConfigured} from "@/lib/google-server";
 export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const sameOrigin=(r:Request)=>!r.headers.get("origin")||r.headers.get("origin")===new URL(r.url).origin;
@@ -14,7 +15,8 @@ export async function GET(request:Request){
  try{
   const a=g.access,level=a.areas.reviews;
   const {results}=await database().prepare("SELECT id,name FROM properties ORDER BY lower(name)").all<{id:string,name:string}>();
-  return reply({reviews:await listReviews(a),properties:results.filter(p=>canSeeProperty(a,p.id)),can:{draft:level==="propose"||level==="edit",approve:level==="edit"},aiReady:!!process.env.ANTHROPIC_API_KEY});
+  const conn=googleConfigured()?await connection():null;
+  return reply({reviews:await listReviews(a),properties:results.filter(p=>canSeeProperty(a,p.id)),can:{draft:level==="propose"||level==="edit",approve:level==="edit",sync:!!conn&&(a.isAdmin||level==="edit")},aiReady:!!process.env.ANTHROPIC_API_KEY});
  }catch(e){console.error("Load reviews",e);return reply({error:"Não foi possível carregar as reviews. Tenta novamente."},503)}
 }
 
@@ -53,6 +55,12 @@ export async function PATCH(request:Request){
    :act.action==="published"?(cur.status!=="approved"?null:db.prepare("UPDATE reviews SET reply=draft,status='published',published_at=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(now,now,act.id,act.version))
    :db.prepare("UPDATE reviews SET status=CASE WHEN draft='' THEN 'new' ELSE 'draft' END,approved_by='',approved_at=NULL,published_at=NULL,version=version+1,updated_at=? WHERE id=? AND version=?").bind(now,act.id,act.version);
   if(!q)return reply({error:"Aprova a resposta antes de a marcar como publicada."},409);
+  // Reviews do Google: a resposta é publicada diretamente no perfil antes de ficar como "Respondida".
+  if(act.action==="published"&&cur.source==="google"){
+   if(!cur.externalId)return reply({error:"Esta review não tem identificador do Google."},409);
+   try{await publishGoogleReply(cur.propertyId,cur.externalId,cur.draft)}
+   catch(e){if(e instanceof GoogleError)return reply({error:`Não foi publicada no Google: ${e.message}`},e.status);throw e}
+  }
   const r=await q.run();if(!r.meta.changes)return reply({error:CONFLICT},409);
   return reply({review:await getReview(act.id)});
  }catch(e){console.error("Update review",e);return reply({error:"Não foi possível guardar. A tua resposta foi mantida. Tenta novamente."},503)}

@@ -12,6 +12,7 @@ import {Input} from '@/components/ui/input';
 import {toast} from 'sonner';
 import {AREAS,LEVELS,LEVEL_LABEL,ROLES,ROLE_INFO,memberSchema,newMember,presetAreas,allAreas,type AreaKey,type Level,type Me,type Member,type Role,type SavedMember} from '@/lib/access';
 import {TOOL_CATEGORIES} from '@/lib/tool';
+import IntegrationsPanel from '@/components/integrations-panel';
 import {propertyMatches,type SavedProperty} from '@/lib/property';
 
 type Issue={path:(string|number)[],message:string};
@@ -61,7 +62,7 @@ export default function SettingsDialog({open,onOpenChange,me}:{open:boolean,onOp
   :!draft?<div className="settings-body">
    <div className="settings-section-head"><div><h3><Users size={18}/> Equipa e acessos</h3><p>Cria as contas da equipa. Cada pessoa entra com o seu email e palavra-passe.</p></div><Button className="primary-btn" onClick={()=>edit()}><Plus/> Adicionar membro</Button></div>
    {loading?<div className="loading-list"><Skeleton className="h-16"/><Skeleton className="h-16"/></div>:loadError?<div className="error-banner" role="alert">{loadError}<Button variant="outline" onClick={load}>Tentar novamente</Button></div>:members.length?<div className="member-rows">{members.map(m=><button key={m.id} className="member-row" onClick={()=>edit(m)}><span className="member-avatar">{initials(m.name)}</span><span className="member-id"><strong>{m.name}{m.email===me.email&&<em> (tu)</em>}</strong><span>{m.email}</span><small>{summary(m)}</small></span><span className="role-chip">{m.role}</span><span className={'status '+(m.status==='Ativo'?'ativo':'inativo')}>{m.status}</span><ChevronRight size={17}/></button>)}</div>:<div className="settings-empty"><UserRound size={26}/><strong>Ainda não há membros</strong><span>Adiciona as pessoas da equipa e escolhe o que cada uma pode ver e editar.</span></div>}
-   <p className="settings-note"><ShieldAlert size={15}/>Cada conta entra com o seu email e palavra-passe na página de login. Aqui defines o que a pessoa pode fazer depois de entrar.</p><AccountPanel email={me.email}/></div>
+   <p className="settings-note"><ShieldAlert size={15}/>Cada conta entra com o seu email e palavra-passe na página de login. Aqui defines o que a pessoa pode fazer depois de entrar.</p><IntegrationsPanel/><AccountPanel email={me.email}/></div>
   :<div className="settings-body"><button className="back-link" disabled={busy} onClick={back}><ArrowLeft size={16}/> Todos os membros</button><h3 className="settings-form-title">{saved?saved.name:'Novo membro'}</h3>
    {error&&<div className="error-banner" role="alert"><strong>{error}</strong>{issues.length>0&&<ul>{issues.map((e,i)=><li key={i}>{fieldNames[String(e.path[0])]||String(e.path[0])}: {e.message}</li>)}</ul>}</div>}
    <fieldset disabled={busy} className="settings-form">

@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from 'react';
-import {Star,Sparkles,Save,Check,Copy,LoaderCircle,Plus,Trash2,RotateCcw,Send,Search,MessageSquareQuote,TriangleAlert,ShieldCheck} from 'lucide-react';
+import {RefreshCw,Star,Sparkles,Save,Check,Copy,LoaderCircle,Plus,Trash2,RotateCcw,Send,Search,MessageSquareQuote,TriangleAlert,ShieldCheck} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Textarea} from '@/components/ui/textarea';
@@ -11,7 +11,7 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Field} from '@/components/hub-fields';
 import {toast} from 'sonner';
 import {REVIEW_PLATFORMS,REVIEW_STATUSES,STATUS_LABEL,manualReviewSchema,ratingScale,isNegative,type Review,type ReviewStatus,type ManualReview} from '@/lib/review';
-type Can={draft:boolean,approve:boolean};
+type Can={draft:boolean,approve:boolean,sync?:boolean};
 type Prop={id:string,name:string};
 const fmtDate=(d:string)=>{const t=Date.parse(d);return isNaN(t)?d:new Date(t).toLocaleDateString('pt-PT',{day:'numeric',month:'short',year:'numeric'})};
 const emptyManual=():ManualReview=>({propertyId:'',platform:'Booking.com',author:'',rating:null,body:'',reviewDate:new Date().toISOString().slice(0,10)});
@@ -37,10 +37,12 @@ export default function Reviews(){
  async function saveManual(){if(!manual||saving)return;setManualError('');const p=manualReviewSchema.safeParse(manual);if(!p.success){setManualError(p.error.issues[0].message);return}
   setSaving(true);try{const d=await call('/api/reviews',{method:'POST',body:JSON.stringify(p.data)});put(d.review);setManual(null);toast.success('Review adicionada.')}catch(e){setManualError(e instanceof Error?e.message:'Não foi possível guardar.')}finally{setSaving(false)}}
  async function remove(){const r=removing;if(!r)return;try{await call(`/api/reviews?id=${r.id}&version=${r.version}`,{method:'DELETE'});setReviews(l=>l.filter(x=>x.id!==r.id));toast.success('Review apagada.')}catch(e){toast.error(e instanceof Error?e.message:'Não foi possível apagar.')}finally{setRemoving(null)}}
+ const [syncing,setSyncing]=useState(false);
+ async function sync(){if(syncing)return;setSyncing(true);try{const d=await call('/api/integrations/google/sync',{method:'POST'});await load();if(d.errors?.length)toast.error(`Sincronizado com erros em ${d.errors.length} alojamento(s): ${d.errors[0].property}: ${d.errors[0].error}`);else toast.success(`Google sincronizado: ${d.added} nova(s), ${d.updated} atualizada(s).`)}catch(e){toast.error(e instanceof Error?e.message:'Não foi possível sincronizar.')}finally{setSyncing(false)}}
  const scale=manual?ratingScale(manual.platform):5;
 
  return <div className="reviews-area">
- <div className="page-heading"><div><div className="eyebrow">REPUTAÇÃO ONLINE</div><h1>Reviews <span className="heading-counter">{reviews.length}</span></h1><p>Reviews dos hóspedes e respostas preparadas com IA, sempre aprovadas por uma pessoa.</p></div>{can.draft&&<Button className="primary-btn" onClick={()=>{setManual(emptyManual());setManualError('')}}><Plus/> Adicionar review</Button>}</div>
+ <div className="page-heading"><div><div className="eyebrow">REPUTAÇÃO ONLINE</div><h1>Reviews <span className="heading-counter">{reviews.length}</span></h1><p>Reviews dos hóspedes e respostas preparadas com IA, sempre aprovadas por uma pessoa.</p></div><div className="heading-actions">{can.sync&&<Button variant="outline" disabled={syncing} onClick={sync}>{syncing?<LoaderCircle className="spin"/>:<RefreshCw/>} Sincronizar Google</Button>}{can.draft&&<Button className="primary-btn" onClick={()=>{setManual(emptyManual());setManualError('')}}><Plus/> Adicionar review</Button>}</div></div>
  {!loading&&!loadError&&<div className="stats review-stats">{(['new','draft','approved','published'] as ReviewStatus[]).map(s=><button key={s} className={'stat review-stat '+(status===s?'on':'')} onClick={()=>setStatus(status===s?'open':s)}><div><span>{STATUS_LABEL[s]}</span><strong>{counts[s]}</strong></div></button>)}</div>}
  {!aiReady&&!loading&&!loadError&&can.draft&&<div className="cap-note" role="status"><TriangleAlert size={16}/><span>A geração de respostas com IA ainda não está ativa: falta configurar a <strong>ANTHROPIC_API_KEY</strong> no servidor. Podes adicionar reviews e escrever respostas à mão.</span></div>}
  {loading?<div className="loading-list"><Skeleton className="h-40"/><Skeleton className="h-40"/></div>
@@ -57,12 +59,12 @@ export default function Reviews(){
     <p className="review-body">{r.body}</p>
     <div className="review-reply"><label htmlFor={'reply-'+r.id}>{published?'Resposta publicada':'Resposta'}{r.draftedBy==='IA'&&!published&&<em> · gerada com IA, revê antes de aprovar</em>}</label>
      <Textarea id={'reply-'+r.id} value={text} readOnly={locked||r.status==='approved'} placeholder={can.draft?'Escreve a resposta ou gera um rascunho com IA.':'Ainda sem resposta.'} onChange={e=>setTexts(t=>({...t,[r.id]:e.target.value}))} rows={5}/>
-     {r.status==='approved'&&<p className="review-note"><ShieldCheck size={14}/> Aprovada por {r.approvedBy}{r.approvedAt?` em ${fmtDate(r.approvedAt)}`:''}. Copia e publica na plataforma.</p>}
+     {r.status==='approved'&&<p className="review-note"><ShieldCheck size={14}/> Aprovada por {r.approvedBy}{r.approvedAt?` em ${fmtDate(r.approvedAt)}`:''}. {r.source==='google'?'Pronta a publicar no Google.':'Copia e publica na plataforma.'}</p>}
      <div className="review-actions">
       {!published&&r.status!=='approved'&&can.draft&&<><Button variant="outline" disabled={!!b||!aiReady} onClick={()=>draftAi(r)}>{b==='ai'?<LoaderCircle className="spin"/>:<Sparkles/>} {r.draft?'Gerar de novo':'Gerar resposta com IA'}</Button>
        <Button variant="outline" disabled={!!b||text===r.draft} onClick={()=>act(r,'save','Rascunho guardado.',{draft:text})}>{b==='save'?<LoaderCircle className="spin"/>:<Save/>} Guardar rascunho</Button>
        {can.approve&&<Button className="primary-btn" disabled={!!b||!text.trim()} onClick={()=>act(r,'approve','Resposta aprovada.',{draft:text})}>{b==='approve'?<LoaderCircle className="spin"/>:<Check/>} Aprovar</Button>}</>}
-      {r.status==='approved'&&<><Button variant="outline" onClick={()=>copy(r.draft)}><Copy/> Copiar resposta</Button>{can.approve&&<><Button variant="outline" disabled={!!b} onClick={()=>act(r,'reopen','Resposta reaberta para edição.')}><RotateCcw/> Editar</Button><Button className="primary-btn" disabled={!!b} onClick={()=>act(r,'published','Marcada como respondida.')}>{b==='published'?<LoaderCircle className="spin"/>:<Send/>} Marcar como publicada</Button></>}</>}
+      {r.status==='approved'&&<>{r.source!=='google'&&<Button variant="outline" onClick={()=>copy(r.draft)}><Copy/> Copiar resposta</Button>}{can.approve&&<><Button variant="outline" disabled={!!b} onClick={()=>act(r,'reopen','Resposta reaberta para edição.')}><RotateCcw/> Editar</Button><Button className="primary-btn" disabled={!!b} onClick={()=>act(r,'published',r.source==='google'?'Resposta publicada no Google.':'Marcada como respondida.')}>{b==='published'?<LoaderCircle className="spin"/>:<Send/>} {r.source==='google'?'Publicar no Google':'Marcar como publicada'}</Button></>}</>}
       {published&&can.approve&&<Button variant="outline" disabled={!!b} onClick={()=>act(r,'reopen','Review reaberta.')}><RotateCcw/> Reabrir</Button>}
      </div></div>
    </article>})}</div>}

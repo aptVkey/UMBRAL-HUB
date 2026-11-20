@@ -601,3 +601,12 @@ h2,h3{color:var(--brand-navy)}
 .review-reply{display:grid;gap:8px;background:#fafbfd;border:1px solid #eceef6;border-radius:10px;padding:14px}.review-reply label{font-size:13px;font-weight:600;color:var(--brand-navy)}.review-reply label em{font-weight:400;color:var(--brand-gray)}.review-reply textarea{background:#fff;font-size:14px;line-height:1.6}
 .review-note{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#1d7a46}.review-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 @media(max-width:767px){.review-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.review-head{flex-direction:column}.review-actions{justify-content:stretch}.review-actions>*{flex:1 1 100%}.review-card{padding:16px}}
+
+.heading-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+.integrations-block h4{display:flex;align-items:center;gap:8px}.integrations-block{display:grid;gap:12px}
+.integration-status{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #cdeedd;background:#f1fbf5;border-radius:10px;color:#1d7a46}.integration-status>div{flex:1;display:grid;gap:2px;min-width:0}.integration-status strong{color:var(--brand-navy);font-weight:600;overflow-wrap:anywhere}.integration-status span{font-size:12.5px;color:var(--brand-gray)}
+.integration-tools{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;font-size:13px;color:var(--brand-gray)}.integration-tools>div{display:flex;gap:8px}
+.integration-rows{display:grid;border:1px solid #eceef6;border-radius:10px;max-height:420px;overflow:auto}.integration-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,260px);gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid #eceef6}.integration-row:last-child{border-bottom:0}
+.integration-row>div{display:grid;gap:2px;min-width:0}.integration-row strong{font-size:14px;color:var(--brand-navy);font-weight:600}.integration-row span{font-size:12px;color:var(--brand-gray);overflow-wrap:anywhere}.integration-row em{font-size:12px;font-style:normal;color:#1d7a46}.integration-row em.bad{color:#b33642}.native-select.invalid{border-color:#e0525e}
+@media(max-width:767px){.integration-row{grid-template-columns:1fr}}
