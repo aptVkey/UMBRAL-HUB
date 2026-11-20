@@ -1,7 +1,7 @@
 import {database} from "@/db/raw";
 import {allAreas,atLeast,type AreaKey,type AreaMap,type Member,type Role} from "./access";
 import {sessionEmail} from "./session";
-export type Access={email:string;name:string;role:Role|null;isAdmin:boolean;implicit:boolean;noAccess:boolean;hasIdentity:boolean;authenticated:boolean;setupRequired:boolean;areas:AreaMap;propertyIds:string[]|null};
+export type Access={email:string;name:string;role:Role|null;isAdmin:boolean;implicit:boolean;noAccess:boolean;hasIdentity:boolean;authenticated:boolean;setupRequired:boolean;areas:AreaMap;propertyIds:string[]|null;toolCategories:string[]};
 const json=(body:unknown,status:number)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 export const deny=(message="Não tens permissão para esta ação.")=>json({error:message},403);
 const none=allAreas("none");
@@ -15,15 +15,15 @@ export async function getAccess(request:Request):Promise<Access>{
   db.prepare("SELECT property_id FROM team_member_properties WHERE member_id=(SELECT id FROM team_members WHERE email=?)").bind(email)]);
  const total=(totalRes.results[0] as {n:number}|undefined)?.n??0;
  const base={email,name:email,hasIdentity:!!email,authenticated:!!email,setupRequired:total===0};
- const blocked:Access={...base,role:null,isAdmin:false,implicit:false,noAccess:true,areas:none,propertyIds:[]};
+ const blocked:Access={...base,role:null,isAdmin:false,implicit:false,noAccess:true,areas:none,propertyIds:[],toolCategories:[]};
  if(!email)return blocked;
  const row=memberRes.results[0] as {id:string,role:Role,status:string,payload:string}|undefined;
  if(!row||row.status!=="Ativo")return blocked;
  const m=JSON.parse(row.payload) as Member;
- if(row.role==="Administrador")return {...base,name:m.name||email,role:row.role,isAdmin:true,implicit:false,noAccess:false,areas:allAreas("edit"),propertyIds:null};
+ if(row.role==="Administrador")return {...base,name:m.name||email,role:row.role,isAdmin:true,implicit:false,noAccess:false,areas:allAreas("edit"),propertyIds:null,toolCategories:[]};
  let propertyIds:string[]|null=null;
  if(m.propertyScope==="selected")propertyIds=(scopeRes.results as {property_id:string}[]).map(r=>r.property_id);
- return {...base,name:m.name||email,role:row.role,isAdmin:false,implicit:false,noAccess:false,areas:row.role==="Editor"?allAreas("edit"):row.role==="Leitor"?allAreas("view"):{...none,...m.areas},propertyIds};
+ return {...base,name:m.name||email,role:row.role,isAdmin:false,implicit:false,noAccess:false,areas:row.role==="Editor"?allAreas("edit"):row.role==="Leitor"?allAreas("view"):{...none,...m.areas},propertyIds,toolCategories:m.toolCategories||[]};
 }
 /** Devolve o acesso ou a resposta 403. Com várias áreas, basta uma cumprir o nível pedido. */
 export async function guard(request:Request,area:AreaKey|AreaKey[],level:"view"|"edit"):Promise<{access:Access}|{response:Response}>{

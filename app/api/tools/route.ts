@@ -2,13 +2,14 @@ import {database} from "@/db/raw";
 import {toolSchema} from "@/lib/tool";
 import {guard,guardEditable} from "@/lib/access-server";
 import {createChangeRequest} from "@/lib/change-request-server";
+import {toolVisible} from "@/lib/tool";
 import {applyToolSave,applyToolDelete} from "@/lib/tool-server";
 export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const sameOrigin=(r:Request)=>!r.headers.get("origin")||r.headers.get("origin")===new URL(r.url).origin;
 export async function GET(request:Request){
  const g=await guard(request,"tools","view");if("response" in g)return g.response;
- try{const {results}=await database().prepare("SELECT id,payload,version,updated_at FROM tools ORDER BY lower(name)").all<{id:string,payload:string,version:number,updated_at:string}>();return reply({tools:results.map(r=>({...JSON.parse(r.payload),id:r.id,version:r.version,updatedAt:r.updated_at}))});}
+ try{const {results}=await database().prepare("SELECT id,payload,version,updated_at FROM tools ORDER BY lower(name)").all<{id:string,payload:string,version:number,updated_at:string}>();const all=results.map(r=>({...JSON.parse(r.payload),id:r.id,version:r.version,updatedAt:r.updated_at}));return reply({tools:all.filter(t=>g.access.isAdmin||toolVisible(t.categories,g.access.toolCategories))});}
  catch(e){console.error("Load tools",e);return reply({error:"Não foi possível carregar as ferramentas. Tenta novamente."},503);}
 }
 export async function POST(request:Request){
