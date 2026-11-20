@@ -16,7 +16,7 @@ import {operatorSchema,type ContactPerson,newOperator,withDefaults,commissionLab
 import {propertyMatches,type SavedProperty} from '@/lib/property';
 
 const tabs=[{id:'data',label:'Dados',icon:Network},{id:'contacts',label:'Contactos',icon:User},{id:'terms',label:'Condições',icon:Percent},{id:'properties',label:'Alojamentos',icon:Hotel},{id:'chat',label:'Notas e conversa',icon:MessageSquare}];
-const fieldNames:Record<string,string>={name:'Nome',contactEmail:'Email de contacto',reservationsEmail:'Email de reservas',financeEmail:'Email financeiro',offersEmail:'Email de ofertas',stopSalesEmail:'Email de stop/open sales',backofficeEmail:'Email de back-office',contacts:'Pessoas de contacto',website:'Website',extranetUrl:'Link da extranet',commission:'Comissão',contractStart:'Início do contrato',contractEnd:'Fim do contrato',propertyIds:'Alojamentos'};
+const fieldNames:Record<string,string>={name:'Nome',contactEmail:'Email de contacto',reservationsEmail:'Email de reservas',financeEmail:'Email financeiro',offersEmail:'Email de ofertas',stopSalesEmail:'Email de stop/open sales',contacts:'Pessoas de contacto',website:'Website',extranetUrl:'Link da extranet',commission:'Comissão',contractStart:'Início do contrato',contractEnd:'Fim do contrato',propertyIds:'Alojamentos'};
 const when=(v:string)=>{if(!v)return 'Por definir';const [y,m,d]=v.split('-');return `${d}/${m}/${y}`};
 const toDraft=(o:SavedOperator):Operator=>{const {updatedAt,...d}=o;return withDefaults(d)};
 export default function Operators({onStateChange}:{onStateChange:(state:{dirty:boolean,busy:boolean})=>void}){
@@ -39,7 +39,7 @@ export default function Operators({onStateChange}:{onStateChange:(state:{dirty:b
  function patch(p:Partial<Operator>){setDraft(d=>d?{...d,...p}:d);if(issues.length){setIssues([]);setError('')}}
  function close(){if(busy)return;if(dirty)setConfirmLeave(true);else setDraft(null)}
  async function save(){if(!draft||busy)return;setError('');setIssues([]);const parsed=operatorSchema.safeParse(draft);
-  if(!parsed.success){setIssues(parsed.error.issues);const key=String(parsed.error.issues[0].path[0]);setTab(['contactName','contactRole','contactEmail','contactPhone','reservationsEmail','financeEmail','address','taxId','offersEmail','stopSalesEmail','backofficeEmail','contacts'].includes(key)?'contacts':['commission','commissionType','contractStart','contractEnd'].includes(key)?'terms':key==='propertyIds'?'properties':'data');setError('Revê os campos assinalados antes de guardar.');return}
+  if(!parsed.success){setIssues(parsed.error.issues);const key=String(parsed.error.issues[0].path[0]);setTab(['contactName','contactRole','contactEmail','contactPhone','reservationsEmail','financeEmail','address','taxId','offersEmail','stopSalesEmail','contacts'].includes(key)?'contacts':['commission','commissionType','contractStart','contractEnd'].includes(key)?'terms':key==='propertyIds'?'properties':'data');setError('Revê os campos assinalados antes de guardar.');return}
   setBusy(true);try{const r=await fetch('/api/operators',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(parsed.data)});const data:{operator?:SavedOperator,error?:string,issues?:{path:(string|number)[],message:string}[],message?:string}=await r.json();if(!r.ok){if(data.issues)setIssues(data.issues);throw Error(data.error)}
    if(r.status===202){toast.success(data.message||'Enviado para aprovação.');setDraft(null);return}
    if(!data.operator)throw Error(data.error);
@@ -71,8 +71,7 @@ export default function Operators({onStateChange}:{onStateChange:(state:{dirty:b
   <Field label="Morada" area value={draft.address} onChange={v=>patch({address:v})} placeholder="Rua, código postal e localidade"/><Field label="NIF / VAT" value={draft.taxId} onChange={v=>patch({taxId:v})}/></div></section>
   <section className="panel form-panel"><Heading title="Emails da operação" desc="Endereços por departamento ou assunto."/><div className="form-grid">
   <Field label="Reservas / Incoming" type="email" value={draft.reservationsEmail} onChange={v=>patch({reservationsEmail:v})}/><Field label="Faturas / Financeiro" type="email" value={draft.financeEmail} onChange={v=>patch({financeEmail:v})}/>
-  <Field label="Ofertas especiais" type="email" value={draft.offersEmail} onChange={v=>patch({offersEmail:v})}/><Field label="Stop / Open sales" type="email" value={draft.stopSalesEmail} onChange={v=>patch({stopSalesEmail:v})}/>
-  <Field label="Back-office" type="email" value={draft.backofficeEmail} onChange={v=>patch({backofficeEmail:v})}/></div></section>
+  <Field label="Ofertas especiais" type="email" value={draft.offersEmail} onChange={v=>patch({offersEmail:v})}/><Field label="Stop / Open sales" type="email" value={draft.stopSalesEmail} onChange={v=>patch({stopSalesEmail:v})}/></div></section>
   <section className="panel form-panel"><Heading title="Pessoas de contacto" desc="Account contact, Area Manager, departamento incoming e outros."/><div className="form-grid">
   <Field label="Contacto principal" value={draft.contactName} onChange={v=>patch({contactName:v})}/><Field label="Cargo / departamento" value={draft.contactRole} onChange={v=>patch({contactRole:v})}/>
   <Field label="Email do contacto" type="email" value={draft.contactEmail} onChange={v=>patch({contactEmail:v})}/><Field label="Telefone" type="tel" value={draft.contactPhone} onChange={v=>patch({contactPhone:v})}/></div>
