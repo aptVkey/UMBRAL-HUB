@@ -68,7 +68,7 @@ export const notifyApprovalRequested=(o:{area:AreaKey,entityType:EntityType,enti
  const [all,visible]=await Promise.all([recipients(),visibility(o.entityType,o.entityId)]);
  const what=`${ENTITY_LABEL[o.entityType]} · ${o.entityName}`;
  const list=all.filter(r=>r.email!==o.access.email&&(r.isAdmin||r.areas[o.area]==="edit")&&r.prefs.approvalRequested&&visible(r)).map(r=>{
-  const {html,text}=renderEmail({title:"Nova proposta para aprovar",intro:`${o.access.name||o.access.email} propôs uma ${o.action==="delete"?"eliminação":"alteração"} que aguarda a tua aprovação.`,
+  const {html,text}=renderEmail({eyebrow:"Aprovação pendente",title:"Nova proposta para aprovar",intro:`${o.access.name||o.access.email} propôs uma ${o.action==="delete"?"eliminação":"alteração"} que aguarda a tua aprovação.`,
    rows:[["Área",areaName(o.area)],["Registo",what],["Tipo",actionLabel(o.action)],["Pedido por",o.access.name||o.access.email],["Data",fmtDate()]],
    note:"Revê a proposta no sino de notificações do Hub para a aprovar ou rejeitar.",cta:cta()});
   return {event:"approvalRequested" as const,to:r.email,subject:`Aprovação pendente: ${what}`,html,text};
@@ -80,7 +80,7 @@ export const notifyApprovalDecided=(o:{area:AreaKey,entityType:EntityType,entity
  if(o.requestedByEmail===o.access.email)return;
  const r=(await recipients()).find(x=>x.email===o.requestedByEmail);if(!r||!r.prefs.approvalDecided)return;
  const ok=o.decision==="approved",what=`${ENTITY_LABEL[o.entityType]} · ${o.entityName}`;
- const {html,text}=renderEmail({title:ok?"A tua proposta foi aprovada":"A tua proposta foi rejeitada",
+ const {html,text}=renderEmail({eyebrow:"Decisão sobre o teu pedido",title:ok?"A tua proposta foi aprovada":"A tua proposta foi rejeitada",
   intro:ok?`${o.access.name||o.access.email} aprovou a tua proposta. A alteração já está visível no Hub.`:`${o.access.name||o.access.email} rejeitou a tua proposta. Nada foi alterado.`,
   rows:[["Área",areaName(o.area)],["Registo",what],["Tipo",actionLabel(o.action)],["Decisão",ok?"Aprovada":"Rejeitada"],["Revisto por",o.access.name||o.access.email],["Data",fmtDate()]],
   note:o.note?.trim()?`Nota: ${o.note.trim()}`:undefined,cta:cta()});
@@ -93,7 +93,7 @@ export const notifyRecordChanged=(o:{area:AreaKey,entityType:EntityType,entityId
  const verb=o.kind==="create"?"criou":o.kind==="delete"?"eliminou":"alterou",what=`${ENTITY_LABEL[o.entityType]} · ${o.entityName}`;
  const label=o.kind==="create"?"Novo registo":o.kind==="delete"?"Registo eliminado":"Registo alterado";
  const list=all.filter(r=>!skip.has(r.email)&&r.areas[o.area]!=="none"&&r.prefs.recordChanged&&visible(r)).map(r=>{
-  const {html,text}=renderEmail({title:`${label}: ${o.entityName}`,intro:`${o.access.name||o.access.email} ${verb} um registo em ${areaName(o.area)}.`,
+  const {html,text}=renderEmail({eyebrow:`Alteração · ${areaName(o.area)}`,title:`${label}: ${o.entityName}`,intro:`${o.access.name||o.access.email} ${verb} um registo em ${areaName(o.area)}.`,
    rows:[["Área",areaName(o.area)],["Registo",what],["Alterado por",o.access.name||o.access.email],["Data",fmtDate()]],
    note:o.kind==="delete"?undefined:"Abre o registo no Hub para ver os detalhes.",cta:cta()});
   return {event:"recordChanged" as const,to:r.email,subject:`${label}: ${what}`,html,text,dedupeKey:`${o.entityType}:${o.entityId}:${o.kind==="delete"?"delete":"change"}`};
