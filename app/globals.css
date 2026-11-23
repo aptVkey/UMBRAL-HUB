@@ -622,3 +622,8 @@ h2,h3{color:var(--brand-navy)}
 .ai-key-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}.settings-note.warn{color:#947132}
 @media(max-width:767px){.ai-grid{grid-template-columns:1fr}}
 .area-loading{display:grid;gap:18px;padding-top:4px}
+
+.review-pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid #eceef6}
+.review-pager-info{font-size:13px;color:#6b7080}
+.review-pager-pages{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.review-pager-gap{padding:0 4px;color:#8a8f98}
