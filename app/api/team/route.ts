@@ -36,7 +36,7 @@ export async function POST(request:Request){
  if(!isNew&&!previous)return reply({error:"Esta conta já não existe. Recarrega a lista."},404);
  // Conta de acesso (Supabase Auth): criada com a palavra-passe inicial ou atualizada quando o admin define uma nova.
  if(isNew&&!invite){const u=await createAuthUser(m.email,password as string,m.name);if(u.created)createdEmail=m.email}
- else if(password||previous!.email!==m.email){
+ else if(!isNew&&(password||previous!.email!==m.email)){
   const id=await findAuthUserId(previous!.email);
   if(id)await updateAuthUser(id,{...(password?{password}:{}),...(previous!.email!==m.email?{email:m.email}:{})});
   else{if(!password)return reply({error:"Esta conta ainda não tem palavra-passe. Define uma palavra-passe para guardar.",issues:[{path:["password"],message:"Define uma palavra-passe."}]},400);const u=await createAuthUser(m.email,password,m.name);if(u.created)createdEmail=m.email}
@@ -51,7 +51,7 @@ export async function POST(request:Request){
  let inviteSent:boolean|undefined,inviteError:string|undefined;
  if(isNew&&invite){try{const r=await sendInviteEmail(m.email,m.name,`${new URL(request.url).origin}/redefinir`);inviteSent=r.ok;if(!r.ok){inviteError=r.message;console.error("Invite",r.status,r.message)}}catch(e){inviteSent=false;inviteError=e instanceof Error?e.message:String(e);console.error("Invite",e)}}
  return reply({member:{...m,version,updatedAt:now} as SavedMember,inviteSent,inviteError},isNew?201:200);
- }catch(e){if(createdEmail){try{await deleteAuthUser(createdEmail)}catch{}}if(/unique|duplicate key/i.test(String(e))&&String(e).includes("email"))return reply({error:"Já existe uma conta com este email."},409);console.error("Save member",e);return reply({error:e instanceof Error&&/palavra-passe|password|email/i.test(e.message)?e.message:"Não foi possível guardar. As tuas alterações foram mantidas. Tenta novamente."},503);}
+ }catch(e){if(createdEmail){try{await deleteAuthUser(createdEmail)}catch{}}if(/unique|duplicate key/i.test(String(e))&&String(e).includes("email"))return reply({error:"Já existe uma conta com este email."},409);console.error("Save member",e);return reply({error:e instanceof Error&&!(e instanceof TypeError)&&/palavra-passe|password|email/i.test(e.message)?e.message:"Não foi possível guardar. As tuas alterações foram mantidas. Tenta novamente."},503);}
 }
 export async function DELETE(request:Request){
  if(!sameOrigin(request))return reply({error:"Pedido não autorizado."},403);
