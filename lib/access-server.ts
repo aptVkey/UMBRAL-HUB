@@ -25,8 +25,10 @@ export async function getAccess(request:Request):Promise<Access>{
  if(row.role==="Administrador")return {...base,name:m.name||email,role:row.role,isAdmin:true,implicit:false,noAccess:false,areas:allAreas("edit"),propertyIds:null,toolCategories:[]};
  let propertyIds:string[]|null=null;
  if(m.propertyScope==="selected")propertyIds=(scopeRes.results as {property_id:string}[]).map(r=>r.property_id);
- return {...base,name:m.name||email,role:row.role,isAdmin:false,implicit:false,noAccess:false,areas:row.role==="Editor"?allAreas("edit"):row.role==="Leitor"?allAreas("view"):{...none,...m.areas},propertyIds,toolCategories:m.toolCategories||[]};
+ return {...base,name:m.name||email,role:row.role,isAdmin:false,implicit:false,noAccess:false,areas:areasFor(row.role,m),propertyIds,toolCategories:m.toolCategories||[]};
 }
+/** Níveis efetivos de cada área para uma função (mesma regra usada no getAccess). */
+export const areasFor=(role:Role,m:Pick<Member,"areas">):AreaMap=>role==="Administrador"||role==="Editor"?allAreas("edit"):role==="Leitor"?allAreas("view"):{...none,...m.areas};
 /** Devolve o acesso ou a resposta 403. Com várias áreas, basta uma cumprir o nível pedido. */
 export async function guard(request:Request,area:AreaKey|AreaKey[],level:"view"|"edit"):Promise<{access:Access}|{response:Response}>{
  const access=await getAccess(request),list=Array.isArray(area)?area:[area];

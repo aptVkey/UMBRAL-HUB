@@ -1,4 +1,5 @@
 import {database} from "@/db/raw";
+import {notifyRecordChanged,entityName} from "@/lib/notify-server";
 import {collaboratorSchema} from "@/lib/collab";
 import {guard,guardEditable} from "@/lib/access-server";
 import {createChangeRequest} from "@/lib/change-request-server";
@@ -24,6 +25,7 @@ export async function POST(request:Request){
  }
  const r=await applyCollaboratorSave(c);
  if(!r.ok)return reply({error:r.error,issues:r.issues},r.status);
+ await notifyRecordChanged({area:"partnerships",entityType:"collaborator",entityId:c.id,entityName:c.name,kind:c.version===0?"create":"update",access:g.access});
  return reply({collaborator:r.collaborator},c.version===0?201:200);
  }catch(e){console.error("Save collaborator",e);return reply({error:"Não foi possível guardar. As tuas alterações foram mantidas. Tenta novamente."},503);}
 }
@@ -37,8 +39,10 @@ export async function DELETE(request:Request){
   const requestId=await createChangeRequest({area:"partnerships",entityType:"collaborator",entityId:id,entityName:row.name,action:"delete",payload:null,baseVersion:version,access:g.access});
   return reply({proposal:true,requestId,message:"O pedido de eliminação foi enviado para aprovação."},202);
  }
+ const deletedName=await entityName("collaborator",id);
  const r=await applyCollaboratorDelete(id,version);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"partnerships",entityType:"collaborator",entityId:id,entityName:deletedName||"(sem nome)",kind:"delete",access:g.access});
  return reply({ok:true});}
  catch(e){console.error("Delete collaborator",e);return reply({error:"Não foi possível eliminar o registo."},503);}
 }

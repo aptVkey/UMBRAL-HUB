@@ -1,4 +1,5 @@
 import {database} from "@/db/raw";
+import {notifyRecordChanged,entityName} from "@/lib/notify-server";
 import {toolSchema} from "@/lib/tool";
 import {guard,guardEditable} from "@/lib/access-server";
 import {createChangeRequest} from "@/lib/change-request-server";
@@ -26,6 +27,7 @@ export async function POST(request:Request){
  }
  const r=await applyToolSave(t);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"tools",entityType:"tool",entityId:t.id,entityName:t.name,kind:t.version===0?"create":"update",access:g.access});
  return reply({tool:r.tool},t.version===0?201:200);
  }catch(e){console.error("Save tool",e);return reply({error:"Não foi possível guardar. As tuas alterações foram mantidas. Tenta novamente."},503);}
 }
@@ -39,8 +41,10 @@ export async function DELETE(request:Request){
   const requestId=await createChangeRequest({area:"tools",entityType:"tool",entityId:id,entityName:row.name,action:"delete",payload:null,baseVersion:version,access:g.access});
   return reply({proposal:true,requestId,message:"O pedido de eliminação foi enviado para aprovação."},202);
  }
+ const deletedName=await entityName("tool",id);
  const r=await applyToolDelete(id,version);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"tools",entityType:"tool",entityId:id,entityName:deletedName||"(sem nome)",kind:"delete",access:g.access});
  return reply({ok:true});}
  catch(e){console.error("Delete tool",e);return reply({error:"Não foi possível eliminar a ferramenta."},503);}
 }

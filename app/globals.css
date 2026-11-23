@@ -627,3 +627,24 @@ h2,h3{color:var(--brand-navy)}
 .review-pager-info{font-size:13px;color:#6b7080}
 .review-pager-pages{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .review-pager-gap{padding:0 4px;color:#8a8f98}
+/* Login: "Esqueci-me da palavra-passe" */
+.login-label-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.login-link{background:none;border:0;padding:0;color:var(--brand-navy);font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.login-link:hover{color:var(--brand-coral)}
+.login-back{display:inline-flex;align-items:center;gap:6px;margin:12px auto 0}
+.login-sent{display:flex;gap:10px;align-items:flex-start;background:var(--brand-turquoise-soft);border:1px solid #bfe9eb;color:var(--brand-ink);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.45;margin:4px 0 16px;text-align:left}
+.login-sent svg{color:var(--brand-turquoise);flex:none;margin-top:1px}
+
+/* Definições: notificações por email e convites */
+.notify-prefs{margin-top:14px;border-top:1px solid var(--brand-line);padding-top:14px}
+.notify-prefs h5{margin:0 0 4px;font-size:14px;color:var(--brand-navy);display:flex;align-items:center;gap:6px}
+.notify-prefs>p{margin:0 0 10px;font-size:13px;color:var(--brand-gray)}
+.notify-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;cursor:pointer}
+.notify-row span{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.notify-row small{color:var(--brand-gray);font-size:12px;line-height:1.4}
+.notify-warn{font-size:12px;color:#8a5a00;background:#fff6e0;border-radius:8px;padding:8px 10px;margin:0 0 8px}
+.invite-toggle{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--brand-line);border-radius:10px;background:var(--brand-navy-soft);cursor:pointer}
+.invite-toggle span{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.invite-toggle small{color:var(--brand-gray);font-size:12px}
+.invite-resend{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+.invite-resend small{color:var(--brand-gray);font-size:12px}

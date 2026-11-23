@@ -2,6 +2,7 @@ import {database} from "@/db/raw";
 import {newId} from "./property";
 import type {Access} from "./access-server";
 import type {AreaKey} from "./access";
+import {notifyApprovalRequested} from "./notify-server";
 import type {ChangeRequest,ChangeAction,ChangeStatus,EntityType} from "./change-request";
 export const reply=(data:unknown,status=200)=>Response.json(data,{status,headers:{"Cache-Control":"no-store"}});
 export const sameOrigin=(r:Request)=>!r.headers.get("origin")||r.headers.get("origin")===new URL(r.url).origin;
@@ -12,6 +13,7 @@ export async function createChangeRequest(opts:{area:AreaKey,entityType:EntityTy
  const id=newId(),now=new Date().toISOString();
  await database().prepare("INSERT INTO change_requests (id,area,entity_type,entity_id,entity_name,action,payload,base_version,status,requested_by_email,requested_by_name,requested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
   .bind(id,opts.area,opts.entityType,opts.entityId,opts.entityName.slice(0,180),opts.action,opts.payload?JSON.stringify(opts.payload):null,opts.baseVersion,"pending",opts.access.email,opts.access.name,now).run();
+ await notifyApprovalRequested({area:opts.area,entityType:opts.entityType,entityId:opts.entityId,entityName:opts.entityName.slice(0,180),action:opts.action,access:opts.access});
  return id;
 }
 /** Pedidos visíveis para este utilizador: os que pode rever (área em "edit", ou administrador) e os seus próprios. */

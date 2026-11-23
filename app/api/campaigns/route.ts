@@ -1,4 +1,5 @@
 import {database} from "@/db/raw";
+import {notifyRecordChanged,entityName} from "@/lib/notify-server";
 import {campaignSchema} from "@/lib/campaign";
 import {guard,guardEditable,deny,scopeOk,scopeVisible,linkedProperties} from "@/lib/access-server";
 import {createChangeRequest} from "@/lib/change-request-server";
@@ -24,6 +25,7 @@ export async function POST(request:Request){
  }
  const r=await applyCampaignSave(c);
  if(!r.ok)return reply({error:r.error,issues:r.issues},r.status);
+ await notifyRecordChanged({area:"campaigns",entityType:"campaign",entityId:c.id,entityName:c.name,kind:c.version===0?"create":"update",access:g.access});
  return reply({campaign:r.campaign},c.version===0?201:200);
  }catch(e){console.error("Save campaign",e);return reply({error:"Não foi possível guardar. As tuas alterações foram mantidas. Confirma os alojamentos, operadores e tarifas selecionados e tenta novamente."},503);}
 }
@@ -38,8 +40,10 @@ export async function DELETE(request:Request){
   const requestId=await createChangeRequest({area:"campaigns",entityType:"campaign",entityId:id,entityName:row.name,action:"delete",payload:null,baseVersion:version,access:g.access});
   return reply({proposal:true,requestId,message:"O pedido de eliminação foi enviado para aprovação."},202);
  }
+ const deletedName=await entityName("campaign",id);
  const r=await applyCampaignDelete(id,version);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"campaigns",entityType:"campaign",entityId:id,entityName:deletedName||"(sem nome)",kind:"delete",access:g.access});
  return reply({ok:true});}
  catch(e){console.error("Delete campaign",e);return reply({error:"Não foi possível eliminar a campanha."},503);}
 }

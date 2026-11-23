@@ -1,4 +1,5 @@
 import {database} from "@/db/raw";
+import {notifyRecordChanged,entityName} from "@/lib/notify-server";
 import {corporateSchema} from "@/lib/corporate";
 import {guard,guardEditable,deny,scopeOk,scopeVisible,linkedProperties} from "@/lib/access-server";
 import {createChangeRequest} from "@/lib/change-request-server";
@@ -23,6 +24,7 @@ export async function POST(request:Request){
  }
  const r=await applyCorporateSave(p,upload instanceof File?upload:null,removeContract);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"corporates",entityType:"corporate",entityId:p.id,entityName:p.name,kind:p.version===0?"create":"update",access:g.access});
  return reply({corporate:r.corporate},p.version===0?201:200);
  }catch(e){console.error("Save corporate",e);return reply({error:"Não foi possível guardar. As tuas alterações foram mantidas. Tenta novamente."},503);}
 }
@@ -37,8 +39,10 @@ export async function DELETE(request:Request){
   const requestId=await createChangeRequest({area:"corporates",entityType:"corporate",entityId:id,entityName:present(row,[]).name,action:"delete",payload:null,baseVersion:version,access:g.access});
   return reply({proposal:true,requestId,message:"O pedido de eliminação foi enviado para aprovação."},202);
  }
+ const deletedName=await entityName("corporate",id);
  const r=await applyCorporateDelete(id,version);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"corporates",entityType:"corporate",entityId:id,entityName:deletedName||"(sem nome)",kind:"delete",access:g.access});
  return reply({ok:true});
  }catch(e){console.error("Delete corporate",e);return reply({error:"Não foi possível eliminar a empresa."},503);}
 }

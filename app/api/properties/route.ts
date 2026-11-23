@@ -1,4 +1,5 @@
 import { database } from "@/db/raw";
+import {notifyRecordChanged,entityName} from "@/lib/notify-server";
 import { propertySchema, alignCards, normalizeRoom, normalizeRate } from "@/lib/property";
 import {guard,guardEditable,deny,propertyAllowed} from "@/lib/access-server";
 import {createChangeRequest} from "@/lib/change-request-server";
@@ -22,6 +23,7 @@ export async function POST(request:Request){
  }
  const r=await applyPropertySave(p);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"properties",entityType:"property",entityId:p.id,entityName:p.name,kind:p.version===0?"create":"update",access:g.access});
  return reply({property:r.property},p.version===0?201:200);
  }catch(e){console.error("Save property",e);return reply({error:"Não foi possível guardar. As tuas alterações foram mantidas. Tenta novamente."},503);}
 }
@@ -37,8 +39,10 @@ export async function DELETE(request:Request){
   const requestId=await createChangeRequest({area:"properties",entityType:"property",entityId:id,entityName:row.name,action:"delete",payload:null,baseVersion:version,access:g.access});
   return reply({proposal:true,requestId,message:"O pedido de eliminação foi enviado para aprovação."},202);
  }
+ const deletedName=await entityName("property",id);
  const r=await applyPropertyDelete(id,version);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"properties",entityType:"property",entityId:id,entityName:deletedName||"(sem nome)",kind:"delete",access:g.access});
  return reply({ok:true});
  }catch(e){console.error("Delete property",e);return reply({error:"Não foi possível eliminar o alojamento."},503);}
 }

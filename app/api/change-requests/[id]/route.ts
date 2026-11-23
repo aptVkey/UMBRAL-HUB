@@ -1,6 +1,7 @@
 import {getAccess,canApprove} from "@/lib/access-server";
 import {getChangeRequest,markDecided} from "@/lib/change-request-server";
 import {decisionSchema} from "@/lib/change-request";
+import {notifyApprovalDecided,notifyRecordChanged} from "@/lib/notify-server";
 import {propertySchema} from "@/lib/property";
 import {corporateSchema} from "@/lib/corporate";
 import {campaignSchema} from "@/lib/campaign";
@@ -42,12 +43,17 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
  if(parsed.data.decision==="reject"){
   const ok=await markDecided(id,"rejected",access,parsed.data.note);
   if(!ok)return reply({error:"Este pedido já foi decidido."},409);
+  await notifyApprovalDecided({...cr,decision:"rejected",note:parsed.data.note,access});
   return reply({ok:true,status:"rejected"});
  }
  const applied=await apply(cr);
  if(!applied.ok)return reply({error:applied.error},applied.status);
  const ok=await markDecided(id,"approved",access,parsed.data.note);
  if(!ok)return reply({error:"Este pedido já foi decidido."},409);
+ await Promise.all([
+  notifyApprovalDecided({...cr,decision:"approved",note:parsed.data.note,access}),
+  notifyRecordChanged({area:cr.area,entityType:cr.entityType,entityId:cr.entityId,entityName:cr.entityName,kind:cr.action==="delete"?"delete":cr.baseVersion===0?"create":"update",
+   access:{...access,name:`${cr.requestedByName||cr.requestedByEmail} (aprovado por ${access.name||access.email})`},exclude:[cr.requestedByEmail]})]);
  return reply({ok:true,status:"approved"});
  }catch(e){console.error("Decide change request",e);return reply({error:"Não foi possível concluir a decisão. Tenta novamente."},503);}
 }

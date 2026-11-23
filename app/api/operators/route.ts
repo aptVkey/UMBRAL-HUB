@@ -1,4 +1,5 @@
 import {database} from "@/db/raw";
+import {notifyRecordChanged,entityName} from "@/lib/notify-server";
 import {operatorSchema,withDefaults,type SavedOperator,type SlimOperator} from "@/lib/operator";
 import {atLeast} from "@/lib/access";
 import {guard,guardEditable,deny,scopeVisible,scopeOk,propertyAllowed} from "@/lib/access-server";
@@ -40,6 +41,7 @@ export async function POST(request:Request){
  }
  const r=await applyOperatorSave(o,propertyIds,codes);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"operators",entityType:"operator",entityId:o.id,entityName:o.name,kind:o.version===0?"create":"update",access:g.access});
  return reply({operator:r.operator},o.version===0?201:200);
  }catch(e){console.error("Save operator",e);return reply({error:"Não foi possível guardar. As tuas alterações foram mantidas. Confirma os alojamentos selecionados e tenta novamente."},503);}
 }
@@ -54,8 +56,10 @@ export async function DELETE(request:Request){
   const requestId=await createChangeRequest({area:"operators",entityType:"operator",entityId:id,entityName:row.name,action:"delete",payload:null,baseVersion:version,access:g.access});
   return reply({proposal:true,requestId,message:"O pedido de eliminação foi enviado para aprovação."},202);
  }
+ const deletedName=await entityName("operator",id);
  const r=await applyOperatorDelete(id,version);
  if(!r.ok)return reply({error:r.error},r.status);
+ await notifyRecordChanged({area:"operators",entityType:"operator",entityId:id,entityName:deletedName||"(sem nome)",kind:"delete",access:g.access});
  return reply({ok:true});}
  catch(e){console.error("Delete operator",e);return reply({error:"Não foi possível eliminar o operador."},503);}
 }
