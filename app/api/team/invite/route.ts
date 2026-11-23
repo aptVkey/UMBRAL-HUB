@@ -2,6 +2,7 @@ import {database} from "@/db/raw";
 import {getAccess,deny} from "@/lib/access-server";
 import {sendInviteEmail} from "@/lib/supabase-auth";
 import {reply,sameOrigin,readJson} from "@/lib/auth-server";
+import {appUrl} from "@/lib/email";
 export const dynamic="force-dynamic";
 /** O administrador (re)envia o email para a pessoa definir a palavra-passe: convite se a conta ainda não existe, senão reposição. */
 export async function POST(request:Request){
@@ -11,7 +12,7 @@ export async function POST(request:Request){
  const m=await database().prepare("SELECT email,name,status FROM team_members WHERE id=?").bind(id).first<{email:string,name:string,status:string}>();
  if(!m)return reply({error:"Esta conta já não existe. Recarrega a lista."},404);
  if(m.status!=="Ativo")return reply({error:"A conta está suspensa. Ativa-a antes de enviar o email."},409);
- const r=await sendInviteEmail(m.email,m.name,`${new URL(request.url).origin}/redefinir`);
+ const r=await sendInviteEmail(m.email,m.name,`${appUrl()||new URL(request.url).origin}/redefinir`);
  if(!r.ok){console.error("Resend invite",r.status,r.message);return reply({error:r.status===429?"Já foi enviado um email há pouco. Aguarda um minuto e tenta novamente.":`Não foi possível enviar o email: ${r.message}`},r.status===429?429:502)}
  return reply({ok:true,kind:r.kind});}
  catch(e){console.error("Resend invite",e);return reply({error:"Não foi possível enviar o email."},503);}

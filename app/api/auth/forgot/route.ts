@@ -1,5 +1,6 @@
 import {sendRecoveryEmail} from "@/lib/supabase-auth";
 import {reply,sameOrigin,readJson,memberByEmail,slow,EMAIL,clientIp,tooManyAttempts,recordFailure,TOO_MANY} from "@/lib/auth-server";
+import {appUrl} from "@/lib/email";
 export const dynamic="force-dynamic";
 const DONE="Se o email pertencer a uma conta ativa, vais receber em breve um link para definir uma nova palavra-passe.";
 /** "Esqueci-me da palavra-passe": a resposta é sempre a mesma, para não revelar que contas existem. */
@@ -13,7 +14,7 @@ export async function POST(request:Request){
  await recordFailure(key,ip);
  const member=await memberByEmail(email);
  if(member?.status==="Ativo"){
-  const r=await sendRecoveryEmail(email,`${new URL(request.url).origin}/redefinir`);
+  const r=await sendRecoveryEmail(email,`${appUrl()||new URL(request.url).origin}/redefinir`);
   if(!r.ok&&r.status!==429)console.error("Forgot password",r.status,r.message);
  }else await slow();
  return reply({ok:true,message:DONE});

@@ -2,6 +2,7 @@ import {database} from "@/db/raw";
 import {memberSchema,normalizeMember,type SavedMember} from "@/lib/access";
 import {getAccess,deny} from "@/lib/access-server";
 import {createAuthUser,deleteAuthUser,findAuthUserId,updateAuthUser,passwordError,sendInviteEmail} from "@/lib/supabase-auth";
+import {appUrl} from "@/lib/email";
 export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const sameOrigin=(r:Request)=>!r.headers.get("origin")||r.headers.get("origin")===new URL(r.url).origin;
@@ -49,7 +50,7 @@ export async function POST(request:Request){
  catch(e){if(createdEmail){try{await deleteAuthUser(createdEmail)}catch{}}if(String(e).includes("email"))return reply({error:"Já existe uma conta com este email.",issues:[{path:["email"],message:"Este email já está registado."}]},409);throw e}
  if(!saved[0].meta.changes){if(createdEmail){try{await deleteAuthUser(createdEmail)}catch{}}return reply({error:"Esta conta foi alterada noutra janela. Reabre-a antes de voltar a guardar."},409)}
  let inviteSent:boolean|undefined,inviteError:string|undefined;
- if(isNew&&invite){try{const r=await sendInviteEmail(m.email,m.name,`${new URL(request.url).origin}/redefinir`);inviteSent=r.ok;if(!r.ok){inviteError=r.message;console.error("Invite",r.status,r.message)}}catch(e){inviteSent=false;inviteError=e instanceof Error?e.message:String(e);console.error("Invite",e)}}
+ if(isNew&&invite){try{const r=await sendInviteEmail(m.email,m.name,`${appUrl()||new URL(request.url).origin}/redefinir`);inviteSent=r.ok;if(!r.ok){inviteError=r.message;console.error("Invite",r.status,r.message)}}catch(e){inviteSent=false;inviteError=e instanceof Error?e.message:String(e);console.error("Invite",e)}}
  return reply({member:{...m,version,updatedAt:now} as SavedMember,inviteSent,inviteError},isNew?201:200);
  }catch(e){if(createdEmail){try{await deleteAuthUser(createdEmail)}catch{}}if(/unique|duplicate key/i.test(String(e))&&String(e).includes("email"))return reply({error:"Já existe uma conta com este email."},409);console.error("Save member",e);return reply({error:e instanceof Error&&!(e instanceof TypeError)&&/palavra-passe|password|email/i.test(e.message)?e.message:"Não foi possível guardar. As tuas alterações foram mantidas. Tenta novamente."},503);}
 }
