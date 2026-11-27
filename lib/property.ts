@@ -110,3 +110,7 @@ export function propertyMatches(p:{name:string,city:string,region:string},query:
  const q=query.trim().toLowerCase();if(!q)return true;
  return p.name.toLowerCase().includes(q)||p.city.toLowerCase().includes(q)||p.region.toLowerCase().includes(q);
 }
+
+/** Parte do endereço da página de apresentação: nome em minúsculas, sem acentos, com hífens (ex.: "huma-by-umbral"). */
+export const propertySlug=(name:string)=>name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/&/g," e ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+export const brochurePath=(name:string)=>`/alojamento/livrodeinformacoes/${propertySlug(name)}`;

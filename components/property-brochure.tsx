@@ -17,15 +17,15 @@ const telHref=(v:string)=>'tel:'+v.replace(/[^\d+]/g,'');
 const euro=(v:string)=>v?`${v.replace('.',',')} €`:'';
 const host=(url:string)=>{try{return new URL(url).host.replace(/^www\./,'')}catch{return url}};
 
-export default function PropertyBrochure({id}:{id:string}){
+export default function PropertyBrochure({slug}:{slug:string}){
  const [data,setData]=useState<Data|null>(null),[state,setState]=useState<'loading'|'login'|'error'|'ready'>('loading'),[error,setError]=useState('');
  useEffect(()=>{let live=true;(async()=>{
-  try{const r=await fetch('/api/properties/brochure?id='+encodeURIComponent(id),{cache:'no-store'});const d=await r.json().catch(()=>({})) as Partial<Data>&{error?:string};if(!live)return;
+  try{const r=await fetch('/api/properties/brochure?slug='+encodeURIComponent(slug),{cache:'no-store'});const d=await r.json().catch(()=>({})) as Partial<Data>&{error?:string};if(!live)return;
    if(r.status===401){setState('login');return}
    if(!r.ok||!d.property)throw Error(d.error||'Não foi possível carregar o alojamento.');
    setData(d as Data);setState('ready');document.title=`${d.property.name} · Umbral`;
   }catch(e){if(live){setError(e instanceof Error?e.message:'Não foi possível carregar o alojamento.');setState('error')}}
- })();return()=>{live=false}},[id]);
+ })();return()=>{live=false}},[slug]);
  if(state==='login')return <Login setupRequired={false}/>;
  if(state==='loading')return <div className="bro-status"><LoaderCircle className="spin"/><span>A carregar o alojamento…</span></div>;
  if(state==='error'||!data)return <div className="bro-status"><ShieldCheck/><h1>Não foi possível abrir este alojamento</h1><p>{error}</p><a className="bro-btn" href="/">Voltar ao hub</a></div>;

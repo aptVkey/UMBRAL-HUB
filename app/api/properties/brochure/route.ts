@@ -1,7 +1,7 @@
 import {database} from "@/db/raw";
 import {guard,deny,propertyAllowed} from "@/lib/access-server";
 import {listPhotos} from "@/lib/property-photo-server";
-import type {Property} from "@/lib/property";
+import {propertySlug,type Property} from "@/lib/property";
 export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -12,7 +12,9 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function GET(request:Request){
  const g=await guard(request,"properties","view");if("response" in g)return g.response;
  try{
-  const id=new URL(request.url).searchParams.get("id")||"";
+  // O endereço usa o nome do alojamento ("huma-by-umbral"); também aceita o id.
+  const sp=new URL(request.url).searchParams,slug=(sp.get("slug")||"").toLowerCase().slice(0,200);let id=sp.get("id")||"";
+  if(slug){const {results}=await database().prepare("SELECT id,name FROM properties ORDER BY lower(name),id").all<{id:string,name:string}>();id=results.find(r=>propertySlug(r.name)===slug)?.id||""}
   if(!UUID.test(id))return reply({error:"Alojamento não encontrado."},404);
   if(!propertyAllowed(g.access,id))return deny("O teu acesso está limitado a alguns alojamentos.");
   const row=await database().prepare("SELECT payload,updated_at FROM properties WHERE id=?").bind(id).first<{payload:string,updated_at:string}>();
