@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {guestbookSchema,emptyGuestbook} from "./guestbook";
 const text = z.string().max(5000, "Máximo de 5.000 caracteres.");
 const short = z.string().max(180);
 const required = short.trim().min(1, "Preenche este campo.");
@@ -63,7 +64,8 @@ export const amenitySchema = z.object({id:short,label:required,group:short,enabl
 export const propertySchema = z.object({
  id,version:z.number().int().min(0),name:required,code:short,type:short,status:z.enum(["Rascunho","Ativo","Inativo"]),city:short,region:short,address:text,postal:short,license:short,email:z.string().max(180).refine(v=>!v||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),"Email inválido."),phone:short,website:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),driveUrl:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),reviewLink:z.string().max(500).refine(v=>!v||/^https?:\/\/[^\s]+$/.test(v),"Usa um endereço com https://."),description:text,
  rooms:z.array(roomSchema).max(100),rates:z.array(rateSchema).max(100),operators:z.array(operatorSchema).max(100),amenities:z.array(amenitySchema).max(200),policies:z.record(z.string().max(80),text),partnerOperatorIds:z.array(id).max(500).default([]),units:z.array(unitSchema).max(1000).default([]),keysafes:z.record(id,z.string().max(60,"Máximo de 60 caracteres.")).default({}),keysafeGeneral:z.string().max(60,"Máximo de 60 caracteres.").default(""),keysafeStaff:z.string().max(60,"Máximo de 60 caracteres.").default(""),keysafeInside:z.string().max(60,"Máximo de 60 caracteres.").default(""),
- hasDeposit:z.boolean().default(false),depositNormal:z.object({alta:amount,baixa:amount}).default({alta:"",baixa:""}),depositGroup:z.object({alta:amount,baixa:amount}).default({alta:"",baixa:""})
+ hasDeposit:z.boolean().default(false),depositNormal:z.object({alta:amount,baixa:amount}).default({alta:"",baixa:""}),depositGroup:z.object({alta:amount,baixa:amount}).default({alta:"",baixa:""}),
+ guestbook:guestbookSchema.default({})
 }).superRefine((v,ctx)=>{
  const ids=new Set(v.rates.map(r=>r.id));
  v.operators.forEach((o,i)=>{if(o.rateIds.some(x=>!ids.has(x)))ctx.addIssue({code:"custom",path:["operators",i,"rateIds"],message:"Existe uma tarifa associada que já não está disponível."})});
@@ -94,7 +96,7 @@ export const amenityGroups: Record<string,string[]> = {
  "Acessibilidade e famílias":["Acesso sem degraus","Quartos adaptados","Casa de banho adaptada","Berço","Cama extra","Cadeira de bebé","Animais de estimação permitidos"]
 };
 export function newId(){if(typeof crypto.randomUUID==='function')return crypto.randomUUID();const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,v=>v.toString(16).padStart(2,'0')).join('');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;}
-export function newProperty():Property {return {id:newId(),version:0,name:"",code:"",type:"Hotel",status:"Rascunho",city:"",region:"",address:"",postal:"",license:"",email:"",phone:"",website:"",driveUrl:"",reviewLink:"",description:"",rooms:[],rates:[],operators:[],policies:{},partnerOperatorIds:[],units:[],keysafes:{},keysafeGeneral:"",keysafeStaff:"",keysafeInside:"",hasDeposit:false,depositNormal:{alta:"",baixa:""},depositGroup:{alta:"",baixa:""},amenities:Object.entries(amenityGroups).flatMap(([group,labels],g)=>labels.map((label,i)=>({id:`amenity-${g}-${i}`,label,group,enabled:false,rules:"",custom:false})))};}
+export function newProperty():Property {return {id:newId(),version:0,name:"",code:"",type:"Hotel",status:"Rascunho",city:"",region:"",address:"",postal:"",license:"",email:"",phone:"",website:"",driveUrl:"",reviewLink:"",description:"",rooms:[],rates:[],operators:[],policies:{},partnerOperatorIds:[],units:[],keysafes:{},keysafeGeneral:"",keysafeStaff:"",keysafeInside:"",hasDeposit:false,depositNormal:{alta:"",baixa:""},depositGroup:{alta:"",baixa:""},guestbook:emptyGuestbook(),amenities:Object.entries(amenityGroups).flatMap(([group,labels],g)=>labels.map((label,i)=>({id:`amenity-${g}-${i}`,label,group,enabled:false,rules:"",custom:false})))};}
 export const SEASONS=[{id:"alta",label:"Época Alta"},{id:"baixa",label:"Época Baixa"}] as const;
 export type Season=typeof SEASONS[number]["id"];
 /** Chave da política tal como é guardada em `policies`: com sufixo de época nos grupos sazonais, plana nos restantes. */
