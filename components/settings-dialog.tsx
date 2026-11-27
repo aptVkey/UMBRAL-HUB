@@ -11,7 +11,7 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Field} from '@/components/hub-fields';
 import {Input} from '@/components/ui/input';
 import {toast} from 'sonner';
-import {AREAS,LEVELS,LEVEL_LABEL,ROLES,ROLE_INFO,memberSchema,newMember,presetAreas,allAreas,type AreaKey,type Level,type Me,type Member,type Role,type SavedMember} from '@/lib/access';
+import {AREAS,LEVELS,LEVEL_LABEL,ROLES,ROLE_INFO,memberSchema,newMember,presetAreas,allAreas,AREA_DEFAULTS,type AreaKey,type Level,type Me,type Member,type Role,type SavedMember} from '@/lib/access';
 import {TOOL_CATEGORIES} from '@/lib/tool';
 import {propertyMatches,type SavedProperty} from '@/lib/property';
 import {NOTIFY_EVENTS,DEFAULT_PREFS,type NotifyPrefs,type NotifyEvent} from '@/lib/notification';
@@ -19,7 +19,7 @@ import {NOTIFY_EVENTS,DEFAULT_PREFS,type NotifyPrefs,type NotifyEvent} from '@/l
 type Issue={path:(string|number)[],message:string};
 const fieldNames:Record<string,string>={toolCategories:'Categorias de ferramentas',name:'Nome',email:'Email',areas:'Áreas',propertyIds:'Alojamentos',role:'Função',password:'Palavra-passe'};
 const generatePassword=()=>{const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';return Array.from(crypto.getRandomValues(new Uint32Array(14)),n=>chars[n%chars.length]).join('')};
-const toDraft=(m:SavedMember):Member=>{const {updatedAt,...d}=m;return {...d,areas:{...allAreas('none'),...d.areas}}};
+const toDraft=(m:SavedMember):Member=>{const {updatedAt,...d}=m;return {...d,areas:{...allAreas('none'),...AREA_DEFAULTS,...d.areas}}};
 const initials=(name:string)=>name.trim().split(/\s+/).slice(0,2).map(p=>p[0]?.toUpperCase()).join('')||'?';
 function summary(m:Member){if(m.role==='Administrador')return 'Acesso total';const n=Object.values(m.areas).filter(l=>l!=='none').length;return `${n} ${n===1?'área':'áreas'} · ${m.propertyScope==='all'?'todos os alojamentos':`${m.propertyIds.length} ${m.propertyIds.length===1?'alojamento':'alojamentos'}`}`}
 /** Cada pessoa escolhe que avisos recebe por email. Grava logo ao mudar. */

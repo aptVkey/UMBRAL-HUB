@@ -1,5 +1,5 @@
 import {database} from "@/db/raw";
-import {allAreas,atLeast,type AreaKey,type AreaMap,type Member,type Role} from "./access";
+import {allAreas,AREA_DEFAULTS,atLeast,type AreaKey,type AreaMap,type Member,type Role} from "./access";
 import {sessionInfo} from "./session";
 export type Access={email:string;name:string;role:Role|null;isAdmin:boolean;implicit:boolean;noAccess:boolean;hasIdentity:boolean;authenticated:boolean;setupRequired:boolean;areas:AreaMap;propertyIds:string[]|null;toolCategories:string[]};
 const json=(body:unknown,status:number)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
@@ -28,7 +28,7 @@ export async function getAccess(request:Request):Promise<Access>{
  return {...base,name:m.name||email,role:row.role,isAdmin:false,implicit:false,noAccess:false,areas:areasFor(row.role,m),propertyIds,toolCategories:m.toolCategories||[]};
 }
 /** Níveis efetivos de cada área para uma função (mesma regra usada no getAccess). */
-export const areasFor=(role:Role,m:Pick<Member,"areas">):AreaMap=>role==="Administrador"||role==="Editor"?allAreas("edit"):role==="Leitor"?allAreas("view"):{...none,...m.areas};
+export const areasFor=(role:Role,m:Pick<Member,"areas">):AreaMap=>role==="Administrador"||role==="Editor"?allAreas("edit"):role==="Leitor"?allAreas("view"):{...none,...AREA_DEFAULTS,...m.areas};
 /** Devolve o acesso ou a resposta 403. Com várias áreas, basta uma cumprir o nível pedido. */
 export async function guard(request:Request,area:AreaKey|AreaKey[],level:"view"|"edit"):Promise<{access:Access}|{response:Response}>{
  const access=await getAccess(request),list=Array.isArray(area)?area:[area];
