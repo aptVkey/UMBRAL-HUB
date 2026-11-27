@@ -113,4 +113,4 @@ export function propertyMatches(p:{name:string,city:string,region:string},query:
 
 /** Parte do endereço da página de apresentação: nome em minúsculas, sem acentos, com hífens (ex.: "huma-by-umbral"). */
 export const propertySlug=(name:string)=>name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/&/g," e ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-export const brochurePath=(name:string)=>`/alojamento/livrodeinformacoes/${propertySlug(name)}`;
+export const brochurePath=(name:string)=>`/alojamento/livro-de-informacoes/${propertySlug(name)}`;
