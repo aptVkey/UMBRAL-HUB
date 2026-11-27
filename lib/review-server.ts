@@ -1,6 +1,6 @@
 import {database} from "@/db/raw";
 import type {Access} from "./access-server";
-import type {Review} from "./review";
+import {periodRange,ratingFilters,type Review} from "./review";
 
 type Row={id:string,property_id:string,property_name:string,platform:string,external_id:string|null,author:string,rating:number|null,body:string,review_date:string,status:Review["status"],draft:string,reply:string,drafted_by:string,approved_by:string,approved_at:string|null,published_at:string|null,source:string,version:number,created_at:string,updated_at:string};
 const SELECT=`SELECT r.*,p.name AS property_name FROM reviews r JOIN properties p ON p.id=r.property_id`;
@@ -8,9 +8,22 @@ export const toReview=(r:Row):Review=>({id:r.id,propertyId:r.property_id,propert
 /** Quem tem acesso limitado a alguns alojamentos só vê as reviews desses. */
 export const canSeeProperty=(a:Access,propertyId:string)=>a.propertyIds===null||a.propertyIds.includes(propertyId);
 export const REVIEW_PAGE_SIZE=20;
-export type ReviewQuery={status:string,property:string,platform:string,q:string,page:number};
+export type ReviewQuery={status:string,property:string,platform:string,q:string,page:number,period:string,rating:string};
+const TEN=`r.platform IN ('Booking.com','Expedia')`;
 /** Negativa: até 6/10 no Booking/Expedia, até 2/5 nas restantes (igual a isNegative em lib/review). */
-const NEGATIVE=`(r.rating IS NOT NULL AND ((r.platform IN ('Booking.com','Expedia') AND r.rating<=6) OR (r.platform NOT IN ('Booking.com','Expedia') AND r.rating<=2)))`;
+const NEGATIVE=`(r.rating IS NOT NULL AND ((${TEN} AND r.rating<=6) OR (NOT ${TEN} AND r.rating<=2)))`;
+const SENTIMENT:Record<string,string>={
+ pos:`(r.rating IS NOT NULL AND ((${TEN} AND r.rating>=8) OR (NOT ${TEN} AND r.rating>=4)))`,
+ neu:`(r.rating IS NOT NULL AND ((${TEN} AND r.rating=7) OR (NOT ${TEN} AND r.rating=3)))`,
+ neg:NEGATIVE,
+ none:"r.rating IS NULL",
+};
+/** Valida os filtros de data e nota (a nota depende da plataforma escolhida). Devolve a mensagem de erro, se houver. */
+export function invalidFilter(f:Pick<ReviewQuery,"period"|"rating"|"platform">){
+ if(f.period&&!periodRange(f.period))return "Período inválido.";
+ if(f.rating&&!ratingFilters(f.platform).some(o=>o.value===f.rating))return "Filtro de nota inválido para esta plataforma.";
+ return null;
+}
 /**
  * Uma página de reviews já filtrada e ordenada na base de dados (por tratar primeiro, negativas primeiro, mais recentes primeiro),
  * com o total filtrado e as contagens por estado. Tudo numa só ida à base de dados.
@@ -22,6 +35,10 @@ export async function listReviewPage(a:Access,f:ReviewQuery){
  if(f.status==="open")where.push("r.status<>'published'");else if(f.status){where.push("r.status=?");params.push(f.status)}
  if(f.property){where.push("r.property_id=?");params.push(f.property)}
  if(f.platform){where.push("r.platform=?");params.push(f.platform)}
+ const range=f.period?periodRange(f.period):null;
+ if(range){where.push("r.review_date>=?");params.push(range.from);if(range.to){where.push("r.review_date<=?");params.push(range.to)}}
+ const band=f.rating?ratingFilters(f.platform).find(o=>o.value===f.rating):undefined;
+ if(band){if(band.min!==undefined){where.push("r.rating BETWEEN ? AND ?");params.push(band.min,band.max)}else if(SENTIMENT[band.value])where.push(SENTIMENT[band.value])}
  const q=f.q.trim().slice(0,200);if(q){const like="%"+q.replace(/[\\%_]/g,m=>"\\"+m)+"%";where.push("(r.author ILIKE ? OR r.body ILIKE ? OR p.name ILIKE ?)");params.push(like,like,like)}
  const w=where.length?" WHERE "+where.join(" AND "):"",sw=scope.length?" WHERE "+scope.join(" AND "):"";
  const page=Math.max(1,Math.floor(f.page)||1);

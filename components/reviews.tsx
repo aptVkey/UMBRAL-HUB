@@ -10,7 +10,7 @@ import {Empty,EmptyHeader,EmptyTitle,EmptyDescription,EmptyMedia} from '@/compon
 import {Skeleton} from '@/components/ui/skeleton';
 import {Field} from '@/components/hub-fields';
 import {toast} from 'sonner';
-import {REVIEW_PLATFORMS,REVIEW_STATUSES,STATUS_LABEL,manualReviewSchema,ratingScale,isNegative,type Review,type ReviewStatus,type ManualReview} from '@/lib/review';
+import {REVIEW_PLATFORMS,REVIEW_PERIODS,REVIEW_STATUSES,ratingFilters,STATUS_LABEL,manualReviewSchema,ratingScale,isNegative,type Review,type ReviewStatus,type ManualReview} from '@/lib/review';
 type Can={draft:boolean,approve:boolean,sync?:boolean};
 type Prop={id:string,name:string};
 const PAGE_SIZE=20;
@@ -23,7 +23,7 @@ async function call(url:string,init:RequestInit):Promise<any>{const r=await fetc
 export default function Reviews(){
  const [reviews,setReviews]=useState<Review[]>([]),[total,setTotal]=useState(0),[counts,setCounts]=useState<Record<ReviewStatus,number>>({new:0,draft:0,approved:0,published:0}),[properties,setProperties]=useState<Prop[]>([]),[can,setCan]=useState<Can>({draft:false,approve:false}),[ai,setAi]=useState({ready:false,label:""});
  const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState('');
- const [status,setStatus]=useState<ReviewStatus|'open'|''>('open'),[property,setProperty]=useState(''),[platform,setPlatform]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(1);
+ const [status,setStatus]=useState<ReviewStatus|'open'|''>('open'),[property,setProperty]=useState(''),[platform,setPlatform]=useState(''),[period,setPeriod]=useState(''),[rating,setRating]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(1);
  const panelRef=useRef<HTMLElement>(null);
  const [texts,setTexts]=useState<Record<string,string>>({}),[busy,setBusy]=useState<Record<string,string>>({});
  const [manual,setManual]=useState<ManualReview|null>(null),[manualError,setManualError]=useState(''),[saving,setSaving]=useState(false),[removing,setRemoving]=useState<Review|null>(null);
@@ -31,14 +31,17 @@ export default function Reviews(){
  const seq=useRef(0),[debouncedQuery,setDebouncedQuery]=useState('');
  useEffect(()=>{const t=setTimeout(()=>setDebouncedQuery(query),300);return()=>clearTimeout(t)},[query]);
  async function load(quiet=false){const n=++seq.current;if(!quiet)setLoading(l=>l&&!reviews.length);setLoadError('');
-  try{const sp=new URLSearchParams({status,property,platform,q:debouncedQuery.trim(),page:String(page)});const d=await call('/api/reviews?'+sp,{method:'GET'});if(n!==seq.current)return;
+  try{const sp=new URLSearchParams({status,property,platform,period,rating,q:debouncedQuery.trim(),page:String(page)});const d=await call('/api/reviews?'+sp,{method:'GET'});if(n!==seq.current)return;
    setReviews(d.reviews);setTotal(d.total);setCounts({new:0,draft:0,approved:0,published:0,...d.counts});setProperties(d.properties);setCan(d.can);setAi(d.ai)}
   catch(e){if(n===seq.current)setLoadError(e instanceof Error?e.message:'Não foi possível carregar as reviews.')}finally{if(n===seq.current)setLoading(false)}}
- useEffect(()=>{load()},[status,property,platform,debouncedQuery,page]);
+ useEffect(()=>{load()},[status,property,platform,period,rating,debouncedQuery,page]);
  const put=(r:Review)=>{setReviews(l=>l.some(x=>x.id===r.id)?l.map(x=>x.id===r.id?r:x):[r,...l]);setTexts(t=>{const {[r.id]:_,...rest}=t;return rest});load(true)};
  const textOf=(r:Review)=>texts[r.id]??(r.status==='published'?r.reply:r.draft);
  const allCount=REVIEW_STATUSES.reduce((n,s)=>n+(counts[s]||0),0),shown=reviews,pages=Math.max(1,Math.ceil(total/PAGE_SIZE)),current=Math.min(page,pages),pageItems=reviews;
- useEffect(()=>{setPage(1)},[status,property,platform,debouncedQuery]);
+ useEffect(()=>{setPage(1)},[status,property,platform,period,rating,debouncedQuery]);
+ /** As notas dependem da escala da plataforma: ao mudar de plataforma, um filtro que já não exista volta a "Todas as notas". */
+ const ratingOptions=ratingFilters(platform);
+ const changePlatform=(v:string)=>{setPlatform(v);if(rating&&!ratingFilters(v).some(o=>o.value===rating))setRating('')};
  const goTo=(p:number)=>{setPage(Math.min(Math.max(1,p),pages));panelRef.current?.scrollIntoView({block:'start',behavior:'smooth'})};
  async function run(r:Review,kind:string,fn:()=>Promise<{review:Review}>,ok?:string){setBusy(b=>({...b,[r.id]:kind}));try{const d=await fn();put(d.review);if(ok)toast.success(ok)}catch(e){toast.error(e instanceof Error?e.message:'Não foi possível concluir.')}finally{setBusy(b=>{const {[r.id]:_,...rest}=b;return rest})}}
  const draftAi=(r:Review)=>run(r,'ai',()=>call('/api/reviews/draft',{method:'POST',body:JSON.stringify({id:r.id,version:r.version})}),'Rascunho gerado. Revê antes de aprovar.');
@@ -61,7 +64,9 @@ export default function Reviews(){
   <div className="review-filters"><div className="bar-search"><Search size={14}/><Input aria-label="Pesquisar reviews" value={query} placeholder="Pesquisar" onChange={e=>setQuery(e.target.value)}/></div>
    <select aria-label="Estado" value={status} onChange={e=>setStatus(e.target.value as ReviewStatus|'open'|'')}><option value="open">Por tratar</option><option value="">Todos os estados</option>{REVIEW_STATUSES.map(s=><option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</select>
    <select aria-label="Alojamento" value={property} onChange={e=>setProperty(e.target.value)}><option value="">Todos os alojamentos</option>{properties.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-   <select aria-label="Plataforma" value={platform} onChange={e=>setPlatform(e.target.value)}><option value="">Todas as plataformas</option>{REVIEW_PLATFORMS.map(p=><option key={p}>{p}</option>)}</select></div>
+   <select aria-label="Plataforma" value={platform} onChange={e=>changePlatform(e.target.value)}><option value="">Todas as plataformas</option>{REVIEW_PLATFORMS.map(p=><option key={p}>{p}</option>)}</select>
+   <select aria-label="Data" value={period} onChange={e=>setPeriod(e.target.value)}><option value="">Qualquer data</option>{REVIEW_PERIODS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>
+   <select aria-label="Nota" value={rating} onChange={e=>setRating(e.target.value)}><option value="">Todas as notas</option>{ratingOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
   {!shown.length?<Empty className="main-empty"><EmptyHeader><EmptyMedia className="empty-hotel"><MessageSquareQuote size={34}/></EmptyMedia><EmptyTitle>{allCount?'Nada para mostrar com estes filtros':'Ainda não há reviews'}</EmptyTitle><EmptyDescription>{allCount?'Muda os filtros para veres outras reviews.':'Quando a conta Google estiver ligada, as reviews aparecem aqui automaticamente. Até lá, podes adicionar reviews à mão.'}</EmptyDescription></EmptyHeader></Empty>
   :<><div className="review-list">{pageItems.map(r=>{const b=busy[r.id],text=textOf(r),neg=isNegative(r),published=r.status==='published',locked=published||!can.draft;
    return <article key={r.id} className={'review-card '+(neg?'negative':'')}>

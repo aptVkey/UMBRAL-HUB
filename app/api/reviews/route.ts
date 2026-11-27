@@ -2,7 +2,7 @@ import {database} from "@/db/raw";
 import {guard} from "@/lib/access-server";
 import {newId} from "@/lib/property";
 import {manualReviewSchema,reviewActionSchema} from "@/lib/review";
-import {listReviewPage,getReview,canSeeProperty} from "@/lib/review-server";
+import {listReviewPage,getReview,canSeeProperty,invalidFilter} from "@/lib/review-server";
 import {aiReady,aiLabel} from "@/lib/ai";
 import {publishGoogleReply,GoogleError,connection,googleConfigured} from "@/lib/google-server";
 export const dynamic="force-dynamic";
@@ -17,8 +17,9 @@ export async function GET(request:Request){
   const a=g.access,level=a.areas.reviews;
   const {results}=await database().prepare("SELECT id,name FROM properties ORDER BY lower(name)").all<{id:string,name:string}>();
   const conn=googleConfigured()?await connection():null;
-  const sp=new URL(request.url).searchParams,f={status:sp.get("status")??"open",property:sp.get("property")||"",platform:sp.get("platform")||"",q:sp.get("q")||"",page:Number(sp.get("page"))||1};
+  const sp=new URL(request.url).searchParams,f={status:sp.get("status")??"open",property:sp.get("property")||"",platform:sp.get("platform")||"",q:sp.get("q")||"",page:Number(sp.get("page"))||1,period:sp.get("period")||"",rating:sp.get("rating")||""};
   if(f.status&&f.status!=="open"&&!["new","draft","approved","published"].includes(f.status))return reply({error:"Estado inválido."},400);
+  const bad=invalidFilter(f);if(bad)return reply({error:bad},400);
   if(f.property&&!canSeeProperty(a,f.property))return reply({error:"Não tens acesso a este alojamento."},403);
   return reply({...await listReviewPage(a,f),properties:results.filter(p=>canSeeProperty(a,p.id)),can:{draft:level==="propose"||level==="edit",approve:level==="edit",sync:!!conn&&(a.isAdmin||level==="edit")},ai:{ready:await aiReady("reviews"),label:aiLabel("reviews")}});
  }catch(e){console.error("Load reviews",e);return reply({error:"Não foi possível carregar as reviews. Tenta novamente."},503)}
